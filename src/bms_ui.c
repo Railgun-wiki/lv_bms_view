@@ -119,6 +119,8 @@ static void widget_key_handler(lv_event_t * e);
 static void global_key_handler(lv_event_t * e);
 static void button_focus_event_cb(lv_event_t * e);
 static lv_obj_t * create_undersampled_bottom_bar(lv_obj_t * parent, int width);
+static void child_created_event_cb(lv_event_t * e);
+static lv_obj_t * get_hud_button_bottom_bar(lv_obj_t * btn);
 
 /**********************
  *   GLOBAL FUNCTIONS
@@ -208,15 +210,37 @@ void bms_ui_update_soc(uint8_t soc_val)
  *   STATIC FUNCTIONS
  **********************/
 
+static lv_obj_t * get_hud_button_bottom_bar(lv_obj_t * btn)
+{
+    if(!btn) return NULL;
+    uint32_t cnt = lv_obj_get_child_cnt(btn);
+    for(uint32_t i = 0; i < cnt; i++) {
+        lv_obj_t * child = lv_obj_get_child(btn, i);
+        if(child && lv_obj_get_height(child) == 3) {
+            return child;
+        }
+    }
+    return NULL;
+}
+
+static void child_created_event_cb(lv_event_t * e)
+{
+    lv_obj_t * btn = lv_event_get_current_target(e);
+    uint32_t cnt = lv_obj_get_child_cnt(btn);
+    if(cnt < 2) return;
+    
+    lv_obj_t * bottom_bar = get_hud_button_bottom_bar(btn);
+    if(bottom_bar) {
+        lv_obj_move_to_index(bottom_bar, cnt - 1);
+    }
+}
+
 static void button_focus_event_cb(lv_event_t * e)
 {
     lv_obj_t * btn = lv_event_get_target(e);
     lv_event_code_t code = lv_event_get_code(e);
     
-    uint32_t cnt = lv_obj_get_child_cnt(btn);
-    if(cnt == 0) return;
-    
-    lv_obj_t * bottom_bar = lv_obj_get_child(btn, cnt - 1);
+    lv_obj_t * bottom_bar = get_hud_button_bottom_bar(btn);
     if(!bottom_bar) return;
     
     if(code == LV_EVENT_FOCUSED) {
@@ -508,6 +532,27 @@ static void create_page_soc(void)
     lv_obj_set_pos(lbl_p1_r, 125, 72);
 }
 
+static void setup_hud_button(lv_obj_t * btn)
+{
+    lv_obj_set_size(btn, 85, 22);
+    lv_obj_add_style(btn, &style_btn_normal, 0);
+    lv_obj_add_style(btn, &style_btn_focused, LV_STATE_FOCUSED);
+    lv_obj_add_style(btn, &style_btn_editing, LV_STATE_USER_1);
+
+    /* Bulletproof focus outline and border local overrides to override default theme selection boxes */
+    lv_obj_set_style_outline_width(btn, 0, LV_STATE_FOCUSED);
+    lv_obj_set_style_outline_width(btn, 0, 0);
+    lv_obj_set_style_border_width(btn, 1, LV_STATE_FOCUSED);
+    lv_obj_set_style_border_color(btn, COLOR_GRAY, LV_STATE_FOCUSED);
+
+    lv_obj_add_event_cb(btn, widget_click_handler, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(btn, widget_key_handler, LV_EVENT_KEY, NULL);
+    lv_obj_add_event_cb(btn, child_created_event_cb, LV_EVENT_CHILD_CREATED, NULL);
+    create_undersampled_bottom_bar(btn, 85);
+    lv_obj_add_event_cb(btn, button_focus_event_cb, LV_EVENT_FOCUSED, NULL);
+    lv_obj_add_event_cb(btn, button_focus_event_cb, LV_EVENT_DEFOCUSED, NULL);
+}
+
 static void create_page_cccv(void)
 {
     lv_obj_t * p = page_containers[1];
@@ -516,49 +561,26 @@ static void create_page_cccv(void)
      * Left controls panel (x=4, width=85px) - extremely space-efficient 
      */
     btn_p2_uset = lv_button_create(p);
-    lv_obj_set_size(btn_p2_uset, 85, 22);
     lv_obj_set_pos(btn_p2_uset, 4, 8);
-    lv_obj_add_style(btn_p2_uset, &style_btn_normal, 0);
-    lv_obj_add_style(btn_p2_uset, &style_btn_focused, LV_STATE_FOCUSED);
-    lv_obj_add_style(btn_p2_uset, &style_btn_editing, LV_STATE_USER_1);
+    setup_hud_button(btn_p2_uset);
     lv_obj_t * lbl_uset = lv_label_create(btn_p2_uset);
     lv_label_set_text(lbl_uset, "U: 4.20V");
     lv_obj_center(lbl_uset);
-    lv_obj_add_event_cb(btn_p2_uset, widget_click_handler, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(btn_p2_uset, widget_key_handler, LV_EVENT_KEY, NULL);
-    create_undersampled_bottom_bar(btn_p2_uset, 85);
-    lv_obj_add_event_cb(btn_p2_uset, button_focus_event_cb, LV_EVENT_FOCUSED, NULL);
-    lv_obj_add_event_cb(btn_p2_uset, button_focus_event_cb, LV_EVENT_DEFOCUSED, NULL);
 
     btn_p2_iset = lv_button_create(p);
-    lv_obj_set_size(btn_p2_iset, 85, 22);
     lv_obj_set_pos(btn_p2_iset, 4, 36);
-    lv_obj_add_style(btn_p2_iset, &style_btn_normal, 0);
-    lv_obj_add_style(btn_p2_iset, &style_btn_focused, LV_STATE_FOCUSED);
-    lv_obj_add_style(btn_p2_iset, &style_btn_editing, LV_STATE_USER_1);
+    setup_hud_button(btn_p2_iset);
     lv_obj_t * lbl_iset = lv_label_create(btn_p2_iset);
     lv_label_set_text(lbl_iset, "I: 2.00A");
     lv_obj_center(lbl_iset);
-    lv_obj_add_event_cb(btn_p2_iset, widget_click_handler, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(btn_p2_iset, widget_key_handler, LV_EVENT_KEY, NULL);
-    create_undersampled_bottom_bar(btn_p2_iset, 85);
-    lv_obj_add_event_cb(btn_p2_iset, button_focus_event_cb, LV_EVENT_FOCUSED, NULL);
-    lv_obj_add_event_cb(btn_p2_iset, button_focus_event_cb, LV_EVENT_DEFOCUSED, NULL);
 
     btn_p2_toggle = lv_button_create(p);
-    lv_obj_set_size(btn_p2_toggle, 85, 22);
     lv_obj_set_pos(btn_p2_toggle, 4, 64);
-    lv_obj_add_style(btn_p2_toggle, &style_btn_normal, 0);
-    lv_obj_add_style(btn_p2_toggle, &style_btn_focused, LV_STATE_FOCUSED);
+    setup_hud_button(btn_p2_toggle);
     lv_obj_set_style_text_color(btn_p2_toggle, COLOR_GOLD, 0);
     lv_obj_t * lbl_toggle = lv_label_create(btn_p2_toggle);
     lv_label_set_text(lbl_toggle, "CHG: OFF");
     lv_obj_center(lbl_toggle);
-    lv_obj_add_event_cb(btn_p2_toggle, widget_click_handler, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(btn_p2_toggle, widget_key_handler, LV_EVENT_KEY, NULL);
-    create_undersampled_bottom_bar(btn_p2_toggle, 85);
-    lv_obj_add_event_cb(btn_p2_toggle, button_focus_event_cb, LV_EVENT_FOCUSED, NULL);
-    lv_obj_add_event_cb(btn_p2_toggle, button_focus_event_cb, LV_EVENT_DEFOCUSED, NULL);
 
     /* 
      * Right Area (x=98, width=136px) - Expanded live chart for maximum visibility
@@ -600,34 +622,19 @@ static void create_page_discharge(void)
      * Left controls panel (x=4, width=85px)
      */
     btn_p3_idis = lv_button_create(p);
-    lv_obj_set_size(btn_p3_idis, 85, 22);
     lv_obj_set_pos(btn_p3_idis, 4, 20);
-    lv_obj_add_style(btn_p3_idis, &style_btn_normal, 0);
-    lv_obj_add_style(btn_p3_idis, &style_btn_focused, LV_STATE_FOCUSED);
-    lv_obj_add_style(btn_p3_idis, &style_btn_editing, LV_STATE_USER_1);
+    setup_hud_button(btn_p3_idis);
     lv_obj_t * lbl_idis = lv_label_create(btn_p3_idis);
     lv_label_set_text(lbl_idis, "I: 3.00A");
     lv_obj_center(lbl_idis);
-    lv_obj_add_event_cb(btn_p3_idis, widget_click_handler, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(btn_p3_idis, widget_key_handler, LV_EVENT_KEY, NULL);
-    create_undersampled_bottom_bar(btn_p3_idis, 85);
-    lv_obj_add_event_cb(btn_p3_idis, button_focus_event_cb, LV_EVENT_FOCUSED, NULL);
-    lv_obj_add_event_cb(btn_p3_idis, button_focus_event_cb, LV_EVENT_DEFOCUSED, NULL);
 
     btn_p3_toggle = lv_button_create(p);
-    lv_obj_set_size(btn_p3_toggle, 85, 22);
     lv_obj_set_pos(btn_p3_toggle, 4, 52);
-    lv_obj_add_style(btn_p3_toggle, &style_btn_normal, 0);
-    lv_obj_add_style(btn_p3_toggle, &style_btn_focused, LV_STATE_FOCUSED);
+    setup_hud_button(btn_p3_toggle);
     lv_obj_set_style_text_color(btn_p3_toggle, COLOR_CYAN, 0);
     lv_obj_t * lbl_toggle = lv_label_create(btn_p3_toggle);
     lv_label_set_text(lbl_toggle, "DSC: OFF");
     lv_obj_center(lbl_toggle);
-    lv_obj_add_event_cb(btn_p3_toggle, widget_click_handler, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(btn_p3_toggle, widget_key_handler, LV_EVENT_KEY, NULL);
-    create_undersampled_bottom_bar(btn_p3_toggle, 85);
-    lv_obj_add_event_cb(btn_p3_toggle, button_focus_event_cb, LV_EVENT_FOCUSED, NULL);
-    lv_obj_add_event_cb(btn_p3_toggle, button_focus_event_cb, LV_EVENT_DEFOCUSED, NULL);
 
     /* 
      * Right Area (x=98, width=136px) - Expanded discharge chart 
@@ -669,34 +676,18 @@ static void create_page_system(void)
      * Left Area parameters (x=4, width=85px)
      */
     btn_p4_baud = lv_button_create(p);
-    lv_obj_set_size(btn_p4_baud, 85, 22);
     lv_obj_set_pos(btn_p4_baud, 4, 20);
-    lv_obj_add_style(btn_p4_baud, &style_btn_normal, 0);
-    lv_obj_add_style(btn_p4_baud, &style_btn_focused, LV_STATE_FOCUSED);
-    lv_obj_add_style(btn_p4_baud, &style_btn_editing, LV_STATE_USER_1);
+    setup_hud_button(btn_p4_baud);
     lv_obj_t * lbl_baud = lv_label_create(btn_p4_baud);
     lv_label_set_text(lbl_baud, "Baud:115K");
     lv_obj_center(lbl_baud);
-    lv_obj_add_event_cb(btn_p4_baud, widget_click_handler, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(btn_p4_baud, widget_key_handler, LV_EVENT_KEY, NULL);
-    create_undersampled_bottom_bar(btn_p4_baud, 85);
-    lv_obj_add_event_cb(btn_p4_baud, button_focus_event_cb, LV_EVENT_FOCUSED, NULL);
-    lv_obj_add_event_cb(btn_p4_baud, button_focus_event_cb, LV_EVENT_DEFOCUSED, NULL);
 
     btn_p4_port = lv_button_create(p);
-    lv_obj_set_size(btn_p4_port, 85, 22);
     lv_obj_set_pos(btn_p4_port, 4, 52);
-    lv_obj_add_style(btn_p4_port, &style_btn_normal, 0);
-    lv_obj_add_style(btn_p4_port, &style_btn_focused, LV_STATE_FOCUSED);
-    lv_obj_add_style(btn_p4_port, &style_btn_editing, LV_STATE_USER_1);
+    setup_hud_button(btn_p4_port);
     lv_obj_t * lbl_port = lv_label_create(btn_p4_port);
     lv_label_set_text(lbl_port, "Port:UART0");
     lv_obj_center(lbl_port);
-    lv_obj_add_event_cb(btn_p4_port, widget_click_handler, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(btn_p4_port, widget_key_handler, LV_EVENT_KEY, NULL);
-    create_undersampled_bottom_bar(btn_p4_port, 85);
-    lv_obj_add_event_cb(btn_p4_port, button_focus_event_cb, LV_EVENT_FOCUSED, NULL);
-    lv_obj_add_event_cb(btn_p4_port, button_focus_event_cb, LV_EVENT_DEFOCUSED, NULL);
 
     /* 
      * Right Area (x=98, width=136px) - Scrolled log terminal with monospace look using montserrat 12
@@ -801,21 +792,15 @@ static void widget_click_handler(lv_event_t * e)
             lv_obj_remove_state(obj, LV_STATE_USER_1); // De-assert gold edit styling
             
             /* Show bottom bar when exiting edit mode */
-            uint32_t cnt = lv_obj_get_child_cnt(obj);
-            if(cnt > 0) {
-                lv_obj_t * bottom_bar = lv_obj_get_child(obj, cnt - 1);
-                if(bottom_bar) lv_obj_remove_flag(bottom_bar, LV_OBJ_FLAG_HIDDEN);
-            }
+            lv_obj_t * bottom_bar = get_hud_button_bottom_bar(obj);
+            if(bottom_bar) lv_obj_remove_flag(bottom_bar, LV_OBJ_FLAG_HIDDEN);
         } else {
             lv_group_set_editing(g, true);
             lv_obj_add_state(obj, LV_STATE_USER_1);    // Assert gold edit styling
             
             /* Hide bottom bar when entering edit mode */
-            uint32_t cnt = lv_obj_get_child_cnt(obj);
-            if(cnt > 0) {
-                lv_obj_t * bottom_bar = lv_obj_get_child(obj, cnt - 1);
-                if(bottom_bar) lv_obj_add_flag(bottom_bar, LV_OBJ_FLAG_HIDDEN);
-            }
+            lv_obj_t * bottom_bar = get_hud_button_bottom_bar(obj);
+            if(bottom_bar) lv_obj_add_flag(bottom_bar, LV_OBJ_FLAG_HIDDEN);
         }
     }
     else if(obj == btn_p2_toggle) {
@@ -939,11 +924,8 @@ static void widget_key_handler(lv_event_t * e)
             lv_obj_remove_state(obj, LV_STATE_USER_1);
             
             /* Show bottom bar when exiting edit mode */
-            uint32_t cnt = lv_obj_get_child_cnt(obj);
-            if(cnt > 0) {
-                lv_obj_t * bottom_bar = lv_obj_get_child(obj, cnt - 1);
-                if(bottom_bar) lv_obj_remove_flag(bottom_bar, LV_OBJ_FLAG_HIDDEN);
-            }
+            lv_obj_t * bottom_bar = get_hud_button_bottom_bar(obj);
+            if(bottom_bar) lv_obj_remove_flag(bottom_bar, LV_OBJ_FLAG_HIDDEN);
         }
     } else {
         /* 

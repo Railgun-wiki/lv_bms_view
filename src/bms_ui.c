@@ -10,6 +10,7 @@
 #define COLOR_GOLD        lv_color_make(0xFF, 0x9F, 0x00) // Chiral Gold (Accent/Highlight)
 #define COLOR_CYAN        lv_color_make(0x00, 0xE5, 0xFF) // Chiral Cyan (Main primary color)
 #define COLOR_RED         lv_color_make(0xFF, 0x17, 0x44) // Danger Red
+#define COLOR_GREEN       lv_color_make(0x00, 0xE6, 0x76) // Bright Green
 #define COLOR_GRAY        lv_color_make(0x55, 0x66, 0x77) // Muted Gray
 #define COLOR_DARK_GRAY   lv_color_make(0x11, 0x16, 0x1B) // Selected Background
 
@@ -64,6 +65,8 @@ static lv_obj_t * lbl_header_link;
 
 /* Global Footer Components */
 static lv_obj_t * lbl_footer_indicator;
+static lv_obj_t * btn_footer_menu;
+static lv_obj_t * footer_circle;
 
 /* Page 1 (SoC Page) Components */
 static lv_obj_t * lbl_p1_soc;
@@ -121,6 +124,7 @@ static void widget_click_handler(lv_event_t * e);
 static void widget_key_handler(lv_event_t * e);
 static void global_key_handler(lv_event_t * e);
 static void button_focus_event_cb(lv_event_t * e);
+static void footer_menu_focus_cb(lv_event_t * e);
 static lv_obj_t * create_undersampled_bottom_bar(lv_obj_t * parent, int width);
 static void strip_obj_decorations(lv_obj_t * obj);
 static void update_header_link_status(void);
@@ -283,6 +287,38 @@ static void button_focus_event_cb(lv_event_t * e)
     }
     else if(code == LV_EVENT_DEFOCUSED) {
         lv_obj_add_flag(bottom_bar, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+static void footer_menu_focus_cb(lv_event_t * e)
+{
+    lv_obj_t * btn = lv_event_get_target(e);
+    lv_event_code_t code = lv_event_get_code(e);
+
+    /* Programmatically lock focus to the active toggle button during simulation */
+    if(code == LV_EVENT_FOCUSED) {
+        if(charge_active && btn_p2_toggle) {
+            lv_group_focus_obj(btn_p2_toggle);
+            return;
+        }
+        if(discharge_active && btn_p3_toggle) {
+            lv_group_focus_obj(btn_p3_toggle);
+            return;
+        }
+    }
+
+    if(code == LV_EVENT_FOCUSED) {
+        lv_obj_set_style_bg_color(btn, COLOR_HUD_BLUE, 0);
+        lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
+        if(lbl_footer_indicator) {
+            lv_obj_set_style_text_color(lbl_footer_indicator, lv_color_white(), 0);
+        }
+    }
+    else if(code == LV_EVENT_DEFOCUSED) {
+        lv_obj_set_style_bg_opa(btn, LV_OPA_TRANSP, 0);
+        if(lbl_footer_indicator) {
+            lv_obj_set_style_text_color(lbl_footer_indicator, COLOR_CYAN, 0);
+        }
     }
 }
 
@@ -502,11 +538,39 @@ static void create_global_header_footer(void)
     lv_obj_set_style_line_width(line_f, 1, 0);
     lv_obj_set_style_line_color(line_f, COLOR_GRAY, 0);
 
-    /* ASCII standard page progress (Replaces the square box ● ○ ○ ○ characters) */
-    lbl_footer_indicator = lv_label_create(footer);
+    /* Circle status indicator in the bottom-left corner */
+    footer_circle = lv_obj_create(footer);
+    lv_obj_set_size(footer_circle, 8, 8);
+    lv_obj_set_pos(footer_circle, 8, 3);
+    lv_obj_set_style_radius(footer_circle, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_border_width(footer_circle, 0, 0);
+    lv_obj_set_style_pad_all(footer_circle, 0, 0);
+    lv_obj_set_style_shadow_width(footer_circle, 0, 0);
+    lv_obj_set_style_outline_width(footer_circle, 0, 0);
+    lv_obj_set_style_bg_color(footer_circle, COLOR_GOLD, 0);
+    lv_obj_set_style_bg_opa(footer_circle, LV_OPA_COVER, 0);
+
+    /* Selectable footer menu button in the bottom-right corner */
+    btn_footer_menu = lv_button_create(footer);
+    lv_obj_set_size(btn_footer_menu, 70, 13);
+    lv_obj_set_pos(btn_footer_menu, 165, 1);
+    lv_obj_set_style_radius(btn_footer_menu, 0, 0);
+    lv_obj_set_style_border_width(btn_footer_menu, 0, 0);
+    lv_obj_set_style_shadow_width(btn_footer_menu, 0, 0);
+    lv_obj_set_style_outline_width(btn_footer_menu, 0, 0);
+    lv_obj_set_style_pad_all(btn_footer_menu, 0, 0);
+    lv_obj_set_style_bg_opa(btn_footer_menu, LV_OPA_TRANSP, 0);
+
+    lv_obj_add_event_cb(btn_footer_menu, widget_click_handler, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(btn_footer_menu, widget_key_handler, LV_EVENT_KEY, NULL);
+    lv_obj_add_event_cb(btn_footer_menu, footer_menu_focus_cb, LV_EVENT_FOCUSED, NULL);
+    lv_obj_add_event_cb(btn_footer_menu, footer_menu_focus_cb, LV_EVENT_DEFOCUSED, NULL);
+
+    /* ASCII standard page progress centered inside the button */
+    lbl_footer_indicator = lv_label_create(btn_footer_menu);
     lv_obj_add_style(lbl_footer_indicator, &style_text_cyan, 0);
     lv_label_set_text(lbl_footer_indicator, "[ * - - - ]");
-    lv_obj_set_pos(lbl_footer_indicator, 6, 1);
+    lv_obj_center(lbl_footer_indicator);
 }
 
 static void create_page_soc(void)
@@ -741,6 +805,9 @@ static void create_page_system(void)
     lv_obj_set_pos(lbl_p4_terminal, 98, 8);
     lv_obj_set_size(lbl_p4_terminal, 136, 80);
     lv_label_set_long_mode(lbl_p4_terminal, LV_LABEL_LONG_CLIP);
+    lv_obj_set_style_border_width(lbl_p4_terminal, 1, 0);
+    lv_obj_set_style_border_color(lbl_p4_terminal, COLOR_GRAY, 0);
+    lv_obj_set_style_pad_all(lbl_p4_terminal, 3, 0);
 }
 
 static void switch_page(int page_idx)
@@ -796,24 +863,26 @@ static void switch_page(int page_idx)
 
         switch(page_idx) {
             case 0:
-                /* Page 0 now adds the container itself to always keep an focus element for event bubbling */
-                lv_group_add_obj(g, page_containers[0]);
-                lv_group_focus_obj(page_containers[0]);
+                lv_group_add_obj(g, btn_footer_menu);
+                lv_group_focus_obj(btn_footer_menu);
                 break;
             case 1:
                 lv_group_add_obj(g, btn_p2_uset);
                 lv_group_add_obj(g, btn_p2_iset);
                 lv_group_add_obj(g, btn_p2_toggle);
+                lv_group_add_obj(g, btn_footer_menu);
                 lv_group_focus_obj(btn_p2_uset);
                 break;
             case 2:
                 lv_group_add_obj(g, btn_p3_idis);
                 lv_group_add_obj(g, btn_p3_toggle);
+                lv_group_add_obj(g, btn_footer_menu);
                 lv_group_focus_obj(btn_p3_idis);
                 break;
             case 3:
                 lv_group_add_obj(g, btn_p4_baud);
                 lv_group_add_obj(g, btn_p4_port);
+                lv_group_add_obj(g, btn_footer_menu);
                 lv_group_focus_obj(btn_p4_baud);
                 break;
         }
@@ -895,6 +964,10 @@ static void widget_click_handler(lv_event_t * e)
             lv_label_set_text(p2_lbl, "CHG: OFF");
             update_toggle_button_style(btn_p2_toggle, false);
         }
+    }
+    else if(obj == btn_footer_menu) {
+        int next_page = (current_page + 1) % 4;
+        switch_page(next_page);
     }
 }
 
@@ -987,6 +1060,12 @@ static void widget_key_handler(lv_event_t * e)
             if(bottom_bar) lv_obj_remove_flag(bottom_bar, LV_OBJ_FLAG_HIDDEN);
         }
     } else {
+        if(obj == btn_footer_menu && key == LV_KEY_ENTER) {
+            int next_page = (current_page + 1) % 4;
+            switch_page(next_page);
+            return;
+        }
+
         /* 
          * Navigation Mode Focus Switching:
          * Bidirectional continuous rotation across all pages and focused widgets.
@@ -1001,12 +1080,12 @@ static void widget_key_handler(lv_event_t * e)
                 switch_page(1);
             } else if(key == LV_KEY_LEFT || key == LV_KEY_UP) {
                 switch_page(3);
-                lv_group_focus_obj(btn_p4_port);
+                lv_group_focus_obj(btn_footer_menu);
             }
         }
         else if(current_page == 1) {
             if(key == LV_KEY_RIGHT || key == LV_KEY_DOWN) {
-                if(obj == btn_p2_toggle) {
+                if(obj == btn_footer_menu) {
                     switch_page(2);
                 } else {
                     lv_group_focus_next(g);
@@ -1021,7 +1100,7 @@ static void widget_key_handler(lv_event_t * e)
         }
         else if(current_page == 2) {
             if(key == LV_KEY_RIGHT || key == LV_KEY_DOWN) {
-                if(obj == btn_p3_toggle) {
+                if(obj == btn_footer_menu) {
                     switch_page(3);
                 } else {
                     lv_group_focus_next(g);
@@ -1029,7 +1108,7 @@ static void widget_key_handler(lv_event_t * e)
             } else if(key == LV_KEY_LEFT || key == LV_KEY_UP) {
                 if(obj == btn_p3_idis) {
                     switch_page(1);
-                    lv_group_focus_obj(btn_p2_toggle);
+                    lv_group_focus_obj(btn_footer_menu);
                 } else {
                     lv_group_focus_prev(g);
                 }
@@ -1037,7 +1116,7 @@ static void widget_key_handler(lv_event_t * e)
         }
         else if(current_page == 3) {
             if(key == LV_KEY_RIGHT || key == LV_KEY_DOWN) {
-                if(obj == btn_p4_port) {
+                if(obj == btn_footer_menu) {
                     switch_page(0);
                 } else {
                     lv_group_focus_next(g);
@@ -1045,7 +1124,7 @@ static void widget_key_handler(lv_event_t * e)
             } else if(key == LV_KEY_LEFT || key == LV_KEY_UP) {
                 if(obj == btn_p4_baud) {
                     switch_page(2);
-                    lv_group_focus_obj(btn_p3_toggle);
+                    lv_group_focus_obj(btn_footer_menu);
                 } else {
                     lv_group_focus_prev(g);
                 }
@@ -1222,6 +1301,23 @@ static void bms_sim_tick(lv_timer_t * timer)
         int32_t c_i = (int32_t)((discharge_active ? -batt_i_real : 0.0f) * 500.0f); // 500 scaling yields 5000 at 10A
         lv_chart_set_next_value(chart_p3, chart_p3_u_series, c_u);
         lv_chart_set_next_value(chart_p3, chart_p3_i_series, c_i);
+    }
+
+    /* Update footer circle status dynamic color / flashing */
+    if(footer_circle) {
+        if(current_page == 0 || current_page == 3) {
+            lv_obj_set_style_bg_color(footer_circle, COLOR_GOLD, 0);
+            lv_obj_set_style_bg_opa(footer_circle, LV_OPA_COVER, 0);
+        } else {
+            bool blink_on = (lv_tick_get() % 1000) < 500;
+            if(blink_on) {
+                bool active = (current_page == 1) ? charge_active : discharge_active;
+                lv_obj_set_style_bg_color(footer_circle, active ? COLOR_RED : COLOR_GREEN, 0);
+                lv_obj_set_style_bg_opa(footer_circle, LV_OPA_COVER, 0);
+            } else {
+                lv_obj_set_style_bg_opa(footer_circle, LV_OPA_TRANSP, 0);
+            }
+        }
     }
 }
 

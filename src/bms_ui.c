@@ -218,7 +218,7 @@ static lv_obj_t * get_hud_button_bottom_bar(lv_obj_t * btn)
     uint32_t cnt = lv_obj_get_child_cnt(btn);
     for(uint32_t i = 0; i < cnt; i++) {
         lv_obj_t * child = lv_obj_get_child(btn, i);
-        if(child && lv_obj_get_height(child) == 3) {
+        if(child && !lv_obj_check_type(child, &lv_label_class)) {
             return child;
         }
     }

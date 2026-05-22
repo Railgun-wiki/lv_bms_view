@@ -121,6 +121,7 @@ static void widget_key_handler(lv_event_t * e);
 static void global_key_handler(lv_event_t * e);
 static void button_focus_event_cb(lv_event_t * e);
 static lv_obj_t * create_undersampled_bottom_bar(lv_obj_t * parent, int width);
+static void strip_obj_decorations(lv_obj_t * obj);
 static lv_obj_t * get_hud_button_label(lv_obj_t * btn);
 static lv_obj_t * get_hud_button_bottom_bar(lv_obj_t * btn);
 
@@ -260,6 +261,17 @@ static void button_focus_event_cb(lv_event_t * e)
     }
 }
 
+static void strip_obj_decorations(lv_obj_t * obj)
+{
+    if(!obj) return;
+    lv_obj_set_style_radius(obj, 0, 0);
+    lv_obj_set_style_border_width(obj, 0, 0);
+    lv_obj_set_style_shadow_width(obj, 0, 0);
+    lv_obj_set_style_outline_width(obj, 0, 0);
+    lv_obj_set_style_pad_all(obj, 0, 0);
+    lv_obj_remove_flag(obj, LV_OBJ_FLAG_SCROLLABLE);
+}
+
 static lv_obj_t * create_undersampled_bottom_bar(lv_obj_t * parent, int width)
 {
     /* Create a container for the selection bar covering the full button background */
@@ -267,10 +279,8 @@ static lv_obj_t * create_undersampled_bottom_bar(lv_obj_t * parent, int width)
     lv_obj_t * bar = lv_obj_create(parent);
     lv_obj_set_size(bar, width, 22);
     lv_obj_set_pos(bar, 0, 0);
+    strip_obj_decorations(bar);
     lv_obj_set_style_bg_opa(bar, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(bar, 0, 0);
-    lv_obj_set_style_pad_all(bar, 0, 0);
-    lv_obj_set_scrollbar_mode(bar, LV_SCROLLBAR_MODE_OFF);
     lv_obj_add_flag(bar, LV_OBJ_FLAG_HIDDEN); /* Hidden by default */
     
     /* Calculate segment widths dynamically to support varying widths if needed */
@@ -298,10 +308,9 @@ static lv_obj_t * create_undersampled_bottom_bar(lv_obj_t * parent, int width)
         lv_obj_t * seg1 = lv_obj_create(bar);
         lv_obj_set_size(seg1, w_main, 22);
         lv_obj_set_pos(seg1, 0, 0);
+        strip_obj_decorations(seg1);
         lv_obj_set_style_bg_color(seg1, COLOR_HUD_BLUE, 0);
         lv_obj_set_style_bg_opa(seg1, LV_OPA_COVER, 0);
-        lv_obj_set_style_border_width(seg1, 0, 0);
-        lv_obj_set_style_radius(seg1, 0, 0);
     }
     
     // Segment 2: Dark Blue 1
@@ -309,10 +318,9 @@ static lv_obj_t * create_undersampled_bottom_bar(lv_obj_t * parent, int width)
         lv_obj_t * seg2 = lv_obj_create(bar);
         lv_obj_set_size(seg2, w_dark1, 22);
         lv_obj_set_pos(seg2, w_main, 0);
+        strip_obj_decorations(seg2);
         lv_obj_set_style_bg_color(seg2, COLOR_DARK_BLUE_1, 0);
         lv_obj_set_style_bg_opa(seg2, LV_OPA_COVER, 0);
-        lv_obj_set_style_border_width(seg2, 0, 0);
-        lv_obj_set_style_radius(seg2, 0, 0);
     }
     
     // Segment 3: Dark Blue 2
@@ -320,10 +328,9 @@ static lv_obj_t * create_undersampled_bottom_bar(lv_obj_t * parent, int width)
         lv_obj_t * seg3 = lv_obj_create(bar);
         lv_obj_set_size(seg3, w_dark2, 22);
         lv_obj_set_pos(seg3, w_main + w_dark1, 0);
+        strip_obj_decorations(seg3);
         lv_obj_set_style_bg_color(seg3, COLOR_DARK_BLUE_2, 0);
         lv_obj_set_style_bg_opa(seg3, LV_OPA_COVER, 0);
-        lv_obj_set_style_border_width(seg3, 0, 0);
-        lv_obj_set_style_radius(seg3, 0, 0);
     }
     
     // Segment 4: Dark Blue 3
@@ -331,10 +338,9 @@ static lv_obj_t * create_undersampled_bottom_bar(lv_obj_t * parent, int width)
         lv_obj_t * seg4 = lv_obj_create(bar);
         lv_obj_set_size(seg4, w_dark3, 22);
         lv_obj_set_pos(seg4, w_main + w_dark1 + w_dark2, 0);
+        strip_obj_decorations(seg4);
         lv_obj_set_style_bg_color(seg4, COLOR_DARK_BLUE_3, 0);
         lv_obj_set_style_bg_opa(seg4, LV_OPA_COVER, 0);
-        lv_obj_set_style_border_width(seg4, 0, 0);
-        lv_obj_set_style_radius(seg4, 0, 0);
     }
     
     return bar;

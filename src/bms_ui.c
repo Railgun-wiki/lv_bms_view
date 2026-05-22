@@ -6,7 +6,7 @@
 /*********************
  *      DEFINES
  *********************/
-#define COLOR_BG          lv_color_make(0x00, 0x00, 0x00) // Deep Black
+#define COLOR_BG          lv_color_make(0x22, 0x22, 0x22) // Dark Gray Background
 #define COLOR_GOLD        lv_color_make(0xFF, 0x9F, 0x00) // Chiral Gold (Accent/Highlight)
 #define COLOR_CYAN        lv_color_make(0x00, 0xE5, 0xFF) // Chiral Cyan (Main primary color)
 #define COLOR_RED         lv_color_make(0xFF, 0x17, 0x44) // Danger Red
@@ -14,6 +14,7 @@
 #define COLOR_DARK_GRAY   lv_color_make(0x11, 0x16, 0x1B) // Selected Background
 
 #define COLOR_HUD_BLUE    lv_color_make(0x00, 0x66, 0xBB) // Selection bar main color
+#define COLOR_DS_TEAL     lv_color_make(0x00, 0xFF, 0xBB) // Death Stranding online green-cyan/teal
 
 /* Stepped Dark Blue tones for HUD gradient color scale bar */
 #define COLOR_DARK_BLUE_1 lv_color_make(0x00, 0x4C, 0x8C) // 75% HUD Blue brightness
@@ -122,8 +123,10 @@ static void global_key_handler(lv_event_t * e);
 static void button_focus_event_cb(lv_event_t * e);
 static lv_obj_t * create_undersampled_bottom_bar(lv_obj_t * parent, int width);
 static void strip_obj_decorations(lv_obj_t * obj);
+static void update_header_link_status(void);
 static lv_obj_t * get_hud_button_label(lv_obj_t * btn);
 static lv_obj_t * get_hud_button_bottom_bar(lv_obj_t * btn);
+static void update_toggle_button_style(lv_obj_t * btn, bool active);
 
 /**********************
  *   GLOBAL FUNCTIONS
@@ -245,9 +248,31 @@ static void button_focus_event_cb(lv_event_t * e)
 {
     lv_obj_t * btn = lv_event_get_target(e);
     lv_event_code_t code = lv_event_get_code(e);
+
+    /* Programmatically lock focus to the active toggle button during simulation */
+    if(code == LV_EVENT_FOCUSED) {
+        if(charge_active && btn_p2_toggle && btn != btn_p2_toggle) {
+            lv_group_focus_obj(btn_p2_toggle);
+            return;
+        }
+        if(discharge_active && btn_p3_toggle && btn != btn_p3_toggle) {
+            lv_group_focus_obj(btn_p3_toggle);
+            return;
+        }
+    }
     
     lv_obj_t * bottom_bar = get_hud_button_bottom_bar(btn);
     if(!bottom_bar) return;
+
+    /* Toggle buttons handle selection bar visibility dynamically depending on active state */
+    bool is_toggle = (btn == btn_p2_toggle || btn == btn_p3_toggle);
+    bool is_active = (btn == btn_p2_toggle && charge_active) || (btn == btn_p3_toggle && discharge_active);
+    
+    if(is_toggle && is_active) {
+        /* Always show the gold selection bar when active */
+        lv_obj_remove_flag(bottom_bar, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
     
     if(code == LV_EVENT_FOCUSED) {
         if(!lv_obj_has_state(btn, LV_STATE_USER_1)) {
@@ -428,7 +453,7 @@ static void create_global_header_footer(void)
      */
     bar_header_soc = lv_bar_create(header);
     lv_obj_set_size(bar_header_soc, 60, 14);
-    lv_obj_set_pos(bar_header_soc, 140, 2);
+    lv_obj_set_pos(bar_header_soc, 115, 2);
     lv_obj_set_style_bg_color(bar_header_soc, COLOR_BG, 0);
     lv_obj_set_style_bg_opa(bar_header_soc, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(bar_header_soc, 1, 0);
@@ -451,8 +476,8 @@ static void create_global_header_footer(void)
     /* Online Link Indicator */
     lbl_header_link = lv_label_create(header);
     lv_obj_add_style(lbl_header_link, &style_text_cyan, 0);
-    lv_label_set_text(lbl_header_link, "LNK");
-    lv_obj_set_pos(lbl_header_link, 203, 3); // Repositioned to 203 so it's not too far right!
+    lv_obj_set_pos(lbl_header_link, 180, 3); // Repositioned to 180 to fit ONLINE/OFFLINE without clipping
+    update_header_link_status();
 
     /* Divider line between header and page */
     lv_obj_t * line = lv_line_create(scr);
@@ -482,13 +507,6 @@ static void create_global_header_footer(void)
     lv_obj_add_style(lbl_footer_indicator, &style_text_cyan, 0);
     lv_label_set_text(lbl_footer_indicator, "[ * - - - ]");
     lv_obj_set_pos(lbl_footer_indicator, 6, 1);
-
-    /* Helper navigation tags (using small montserrat 12 font) */
-    lv_obj_t * lbl_help = lv_label_create(footer);
-    lv_obj_add_style(lbl_help, &style_text_gray, 0);
-    lv_obj_set_style_text_font(lbl_help, &lv_font_montserrat_12, 0);
-    lv_label_set_text(lbl_help, "[ROT]:NAV [ENT]:EDIT [SPC]:PAGE");
-    lv_obj_set_pos(lbl_help, 92, 2);
 }
 
 static void create_page_soc(void)
@@ -502,7 +520,7 @@ static void create_page_soc(void)
      */
     lbl_p1_soc = lv_label_create(p);
     lv_obj_set_style_text_font(lbl_p1_soc, &lv_font_montserrat_28, 0);
-    lv_obj_set_style_text_color(lbl_p1_soc, COLOR_CYAN, 0);
+    lv_obj_set_style_text_color(lbl_p1_soc, COLOR_GOLD, 0);
     char buf[16];
     snprintf(buf, sizeof(buf), "%d%%", global_predicted_soc);
     lv_label_set_text(lbl_p1_soc, buf);
@@ -598,7 +616,7 @@ static void create_page_cccv(void)
     btn_p2_toggle = lv_button_create(p);
     lv_obj_set_pos(btn_p2_toggle, 4, 64);
     setup_hud_button(btn_p2_toggle);
-    lv_obj_set_style_text_color(btn_p2_toggle, COLOR_GOLD, 0);
+    update_toggle_button_style(btn_p2_toggle, charge_active);
     lv_obj_t * lbl_toggle = lv_label_create(btn_p2_toggle);
     lv_label_set_text(lbl_toggle, "CHG: OFF");
     lv_obj_center(lbl_toggle);
@@ -617,6 +635,8 @@ static void create_page_cccv(void)
     lv_obj_set_style_border_width(chart_p2, 1, 0);
     lv_obj_set_style_pad_all(chart_p2, 0, 0);
     lv_obj_set_style_line_color(chart_p2, COLOR_DARK_GRAY, LV_PART_ITEMS);
+    lv_obj_set_style_width(chart_p2, 0, LV_PART_INDICATOR); // Hide value dots
+    lv_obj_set_style_height(chart_p2, 0, LV_PART_INDICATOR); // Hide value dots
     
     /* Create series */
     chart_p2_u_series = lv_chart_add_series(chart_p2, COLOR_CYAN, LV_CHART_AXIS_PRIMARY_Y);
@@ -652,7 +672,7 @@ static void create_page_discharge(void)
     btn_p3_toggle = lv_button_create(p);
     lv_obj_set_pos(btn_p3_toggle, 4, 52);
     setup_hud_button(btn_p3_toggle);
-    lv_obj_set_style_text_color(btn_p3_toggle, lv_color_white(), 0);
+    update_toggle_button_style(btn_p3_toggle, discharge_active);
     lv_obj_t * lbl_toggle = lv_label_create(btn_p3_toggle);
     lv_label_set_text(lbl_toggle, "DSC: OFF");
     lv_obj_center(lbl_toggle);
@@ -671,6 +691,8 @@ static void create_page_discharge(void)
     lv_obj_set_style_border_width(chart_p3, 1, 0);
     lv_obj_set_style_pad_all(chart_p3, 0, 0);
     lv_obj_set_style_line_color(chart_p3, COLOR_DARK_GRAY, LV_PART_ITEMS);
+    lv_obj_set_style_width(chart_p3, 0, LV_PART_INDICATOR); // Hide value dots
+    lv_obj_set_style_height(chart_p3, 0, LV_PART_INDICATOR); // Hide value dots
 
     /* Create series */
     chart_p3_u_series = lv_chart_add_series(chart_p3, COLOR_CYAN, LV_CHART_AXIS_PRIMARY_Y);
@@ -806,6 +828,14 @@ static void widget_click_handler(lv_event_t * e)
     lv_group_t * g = lv_group_get_default();
     if(!g) return;
 
+    /* Touch/Mouse click locks for safety during active charging/discharging */
+    if(charge_active && obj != btn_p2_toggle) {
+        return;
+    }
+    if(discharge_active && obj != btn_p3_toggle) {
+        return;
+    }
+
     if(obj == btn_p2_uset || obj == btn_p2_iset || obj == btn_p3_idis || obj == btn_p4_baud || obj == btn_p4_port) {
         /* Toggle LVGL native group editing mode */
         if(lv_group_get_editing(g)) {
@@ -833,16 +863,16 @@ static void widget_click_handler(lv_event_t * e)
         lv_obj_t * lbl = get_hud_button_label(btn_p2_toggle);
         if(charge_active) {
             lv_label_set_text(lbl, "CHG: ON");
-            lv_obj_set_style_text_color(btn_p2_toggle, COLOR_GOLD, 0);
         } else {
             lv_label_set_text(lbl, "CHG: OFF");
-            lv_obj_set_style_text_color(btn_p2_toggle, COLOR_GOLD, 0);
         }
+        update_toggle_button_style(btn_p2_toggle, charge_active);
+        
         /* Reset discharge button label if visible */
         if(btn_p3_toggle) {
             lv_obj_t * p3_lbl = get_hud_button_label(btn_p3_toggle);
             lv_label_set_text(p3_lbl, "DSC: OFF");
-            lv_obj_set_style_text_color(btn_p3_toggle, lv_color_white(), 0);
+            update_toggle_button_style(btn_p3_toggle, false);
         }
     }
     else if(obj == btn_p3_toggle) {
@@ -854,16 +884,16 @@ static void widget_click_handler(lv_event_t * e)
         lv_obj_t * lbl = get_hud_button_label(btn_p3_toggle);
         if(discharge_active) {
             lv_label_set_text(lbl, "DSC: ON");
-            lv_obj_set_style_text_color(btn_p3_toggle, COLOR_RED, 0);
         } else {
             lv_label_set_text(lbl, "DSC: OFF");
-            lv_obj_set_style_text_color(btn_p3_toggle, lv_color_white(), 0);
         }
+        update_toggle_button_style(btn_p3_toggle, discharge_active);
+        
         /* Reset charge button label if visible */
         if(btn_p2_toggle) {
             lv_obj_t * p2_lbl = get_hud_button_label(btn_p2_toggle);
             lv_label_set_text(p2_lbl, "CHG: OFF");
-            lv_obj_set_style_text_color(btn_p2_toggle, COLOR_GOLD, 0);
+            update_toggle_button_style(btn_p2_toggle, false);
         }
     }
 }
@@ -874,6 +904,14 @@ static void widget_key_handler(lv_event_t * e)
     lv_key_t key = lv_event_get_key(e);
     lv_group_t * g = lv_group_get_default();
     if(!g) return;
+
+    /* Swallow focus navigation while CHG or DSC is active to lock the cursor */
+    if(charge_active && obj == btn_p2_toggle) {
+        if(key != LV_KEY_ENTER) return;
+    }
+    if(discharge_active && obj == btn_p3_toggle) {
+        if(key != LV_KEY_ENTER) return;
+    }
 
     if(lv_group_get_editing(g)) {
         /* Handle adjustment of value variables inside edit mode */
@@ -1021,6 +1059,11 @@ static void global_key_handler(lv_event_t * e)
     lv_key_t key = lv_event_get_key(e);
     lv_group_t * g = lv_group_get_default();
 
+    /* Swallow global page navigation events during active toggle locks */
+    if(charge_active || discharge_active) {
+        return;
+    }
+
 
     /* 
      * Switch page when space character ' ' is pressed or ESC key is pressed.
@@ -1089,7 +1132,7 @@ static void bms_sim_tick(lv_timer_t * timer)
             discharge_active = 0;
             if(btn_p3_toggle) {
                 lv_label_set_text(get_hud_button_label(btn_p3_toggle), "DSC: OFF");
-                lv_obj_set_style_text_color(btn_p3_toggle, lv_color_white(), 0);
+                update_toggle_button_style(btn_p3_toggle, false);
             }
         }
 
@@ -1102,7 +1145,7 @@ static void bms_sim_tick(lv_timer_t * timer)
             
             if(btn_p3_toggle) {
                 lv_label_set_text(get_hud_button_label(btn_p3_toggle), "DSC: OFF");
-                lv_obj_set_style_text_color(btn_p3_toggle, lv_color_white(), 0);
+                update_toggle_button_style(btn_p3_toggle, false);
             }
         }
 
@@ -1145,8 +1188,11 @@ static void bms_sim_tick(lv_timer_t * timer)
     }
     /* Update Page 2 charts & labels */
     else if(current_page == 1) {
-        char buf[24];
-        snprintf(buf, sizeof(buf), "U: %.2fV  I: %.2fA", batt_u_real, charge_active ? batt_i_real : 0.0f);
+        char buf[32];
+        float p_u = batt_u_real;
+        float p_i = charge_active ? batt_i_real : 0.0f;
+        float p_w = p_u * p_i;
+        snprintf(buf, sizeof(buf), "U:%.2fV I:%.2fA P:%.2fW", p_u, p_i, p_w);
         lv_label_set_text(lbl_p2_readout, buf);
 
         /* Map real readings to chart range (0-5000) */
@@ -1157,13 +1203,16 @@ static void bms_sim_tick(lv_timer_t * timer)
     }
     /* Update Page 3 charts & labels */
     else if(current_page == 2) {
-        char buf[24];
+        char buf[32];
         if(low_volt_alert) {
             snprintf(buf, sizeof(buf), "CUTOFF! U < 2.80V");
             lv_label_set_text(lbl_p3_readout, buf);
             lv_obj_set_style_text_color(lbl_p3_readout, COLOR_RED, 0);
         } else {
-            snprintf(buf, sizeof(buf), "U: %.2fV  I: %.2fA", batt_u_real, discharge_active ? -batt_i_real : 0.0f);
+            float p_u = batt_u_real;
+            float p_i = discharge_active ? -batt_i_real : 0.0f;
+            float p_w = p_u * p_i;
+            snprintf(buf, sizeof(buf), "U:%.2fV I:%.2fA P:%.2fW", p_u, p_i, p_w);
             lv_label_set_text(lbl_p3_readout, buf);
             lv_obj_set_style_text_color(lbl_p3_readout, COLOR_GRAY, 0);
         }
@@ -1185,6 +1234,12 @@ static void host_comm_tick(lv_timer_t * timer)
 
     /* Simulate periodic packets from Host */
     rx_packet_count += (rand() % 2 + 1);
+    
+    /* Simulate connection health: 8% chance of toggling host_online status */
+    if(rand() % 12 == 0) {
+        host_online = !host_online;
+    }
+    update_header_link_status();
     
     /* Simulate a smart estimation model where host predicted SoC slowly trails real battery SoC */
     float difference = batt_soc - (float)global_predicted_soc;
@@ -1210,19 +1265,33 @@ static void host_comm_tick(lv_timer_t * timer)
     log_cycle++;
     
     char log_entry[64];
-    switch(log_cycle % 4) {
-        case 0:
-            snprintf(log_entry, sizeof(log_entry), "RX -> SOC: %03d%%", global_predicted_soc);
-            break;
-        case 1:
-            snprintf(log_entry, sizeof(log_entry), "RX -> PACKETS: %04d", rx_packet_count);
-            break;
-        case 2:
-            snprintf(log_entry, sizeof(log_entry), "RX -> CELL_U: %.2fV", batt_u_real);
-            break;
-        case 3:
-            snprintf(log_entry, sizeof(log_entry), "LINK -> SYN %s", baud_rate_idx ? "115K" : "9K6");
-            break;
+    if(!host_online) {
+        switch(log_cycle % 3) {
+            case 0:
+                snprintf(log_entry, sizeof(log_entry), "LINK -> OFFLINE");
+                break;
+            case 1:
+                snprintf(log_entry, sizeof(log_entry), "RX -> TIMEOUT ERROR");
+                break;
+            case 2:
+                snprintf(log_entry, sizeof(log_entry), "SYS -> CHIRAL DISCONN");
+                break;
+        }
+    } else {
+        switch(log_cycle % 4) {
+            case 0:
+                snprintf(log_entry, sizeof(log_entry), "RX -> SOC: %03d%%", global_predicted_soc);
+                break;
+            case 1:
+                snprintf(log_entry, sizeof(log_entry), "RX -> PACKETS: %04d", rx_packet_count);
+                break;
+            case 2:
+                snprintf(log_entry, sizeof(log_entry), "RX -> CELL_U: %.2fV", batt_u_real);
+                break;
+            case 3:
+                snprintf(log_entry, sizeof(log_entry), "LINK -> SYN %s", baud_rate_idx ? "115K" : "9K6");
+                break;
+        }
     }
 
     /* Shift lines of the buffer */
@@ -1271,3 +1340,87 @@ static void host_comm_tick(lv_timer_t * timer)
         lv_label_set_text(lbl_p4_terminal, terminal_buffer);
     }
 }
+
+static void update_header_link_status(void)
+{
+    if(!lbl_header_link) return;
+    if(host_online) {
+        lv_label_set_text(lbl_header_link, "ONLINE");
+        lv_obj_set_style_text_color(lbl_header_link, COLOR_DS_TEAL, 0);
+    } else {
+        lv_label_set_text(lbl_header_link, "OFFLINE");
+        lv_obj_set_style_text_color(lbl_header_link, COLOR_RED, 0);
+    }
+}
+
+static void update_toggle_button_style(lv_obj_t * btn, bool active)
+{
+    if(!btn) return;
+    
+    lv_obj_t * bottom_bar = get_hud_button_bottom_bar(btn);
+    
+    if(active) {
+        /* ON State: Gold occupying 80%! */
+        /* Set base button background to COLOR_BG to let the selection bar segments shine */
+        lv_obj_set_style_bg_color(btn, COLOR_BG, 0);
+        lv_obj_set_style_bg_color(btn, COLOR_BG, LV_STATE_FOCUSED);
+        lv_obj_set_style_bg_color(btn, COLOR_BG, LV_STATE_FOCUS_KEY);
+        lv_obj_set_style_bg_color(btn, COLOR_BG, LV_STATE_FOCUSED | LV_STATE_FOCUS_KEY);
+        
+        lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
+        lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_STATE_FOCUSED);
+        lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_STATE_FOCUS_KEY);
+        lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_STATE_FOCUSED | LV_STATE_FOCUS_KEY);
+        
+        if(bottom_bar) {
+            /* Force bottom bar to be visible for the Gold 80% effect */
+            lv_obj_remove_flag(bottom_bar, LV_OBJ_FLAG_HIDDEN);
+            
+            /* Update bottom bar segments to gold tones */
+            lv_obj_t * seg1 = lv_obj_get_child(bottom_bar, 0);
+            lv_obj_t * seg2 = lv_obj_get_child(bottom_bar, 1);
+            lv_obj_t * seg3 = lv_obj_get_child(bottom_bar, 2);
+            lv_obj_t * seg4 = lv_obj_get_child(bottom_bar, 3);
+            
+            if(seg1) lv_obj_set_style_bg_color(seg1, COLOR_GOLD, 0);
+            if(seg2) lv_obj_set_style_bg_color(seg2, lv_color_make(0xC0, 0x77, 0x00), 0); // 75% Gold
+            if(seg3) lv_obj_set_style_bg_color(seg3, lv_color_make(0x80, 0x50, 0x00), 0); // 50% Gold
+            if(seg4) lv_obj_set_style_bg_color(seg4, lv_color_make(0x40, 0x27, 0x00), 0); // 25% Gold
+        }
+    } else {
+        /* OFF State: Cyan background when defocused, consistent selection bar when focused */
+        /* Set base background color to COLOR_CYAN when defocused */
+        lv_obj_set_style_bg_color(btn, COLOR_CYAN, 0);
+        
+        /* For focused states, we reset the overrides so they inherit the standard &style_btn_focused (COLOR_BG) */
+        lv_obj_set_style_bg_color(btn, COLOR_BG, LV_STATE_FOCUSED);
+        lv_obj_set_style_bg_color(btn, COLOR_BG, LV_STATE_FOCUS_KEY);
+        lv_obj_set_style_bg_color(btn, COLOR_BG, LV_STATE_FOCUSED | LV_STATE_FOCUS_KEY);
+        
+        lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
+        lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_STATE_FOCUSED);
+        lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_STATE_FOCUS_KEY);
+        lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_STATE_FOCUSED | LV_STATE_FOCUS_KEY);
+        
+        if(bottom_bar) {
+            /* Reset segment colors to standard blue */
+            lv_obj_t * seg1 = lv_obj_get_child(bottom_bar, 0);
+            lv_obj_t * seg2 = lv_obj_get_child(bottom_bar, 1);
+            lv_obj_t * seg3 = lv_obj_get_child(bottom_bar, 2);
+            lv_obj_t * seg4 = lv_obj_get_child(bottom_bar, 3);
+            
+            if(seg1) lv_obj_set_style_bg_color(seg1, COLOR_HUD_BLUE, 0);
+            if(seg2) lv_obj_set_style_bg_color(seg2, COLOR_DARK_BLUE_1, 0);
+            if(seg3) lv_obj_set_style_bg_color(seg3, COLOR_DARK_BLUE_2, 0);
+            if(seg4) lv_obj_set_style_bg_color(seg4, COLOR_DARK_BLUE_3, 0);
+        }
+    }
+    
+    // Make sure text color is always white
+    lv_obj_set_style_text_color(btn, lv_color_white(), 0);
+    lv_obj_set_style_text_color(btn, lv_color_white(), LV_STATE_FOCUSED);
+    lv_obj_set_style_text_color(btn, lv_color_white(), LV_STATE_FOCUS_KEY);
+    lv_obj_set_style_text_color(btn, lv_color_white(), LV_STATE_FOCUSED | LV_STATE_FOCUS_KEY);
+}
+
+

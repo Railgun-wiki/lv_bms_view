@@ -13,6 +13,11 @@
 #define COLOR_GRAY        lv_color_make(0x55, 0x66, 0x77) // Muted Gray
 #define COLOR_DARK_GRAY   lv_color_make(0x11, 0x16, 0x1B) // Selected Background
 
+/* Stepped Dark Blue tones for HUD gradient color scale bar */
+#define COLOR_DARK_BLUE_1 lv_color_make(0x00, 0xAC, 0xC0) // 75% Chiral Cyan brightness
+#define COLOR_DARK_BLUE_2 lv_color_make(0x00, 0x73, 0x80) // 50% Chiral Cyan brightness
+#define COLOR_DARK_BLUE_3 lv_color_make(0x00, 0x39, 0x40) // 25% Chiral Cyan brightness
+
 /**********************
  *  STATIC VARIABLES
  **********************/
@@ -229,54 +234,79 @@ static void button_focus_event_cb(lv_event_t * e)
 static lv_obj_t * create_undersampled_bottom_bar(lv_obj_t * parent, int width)
 {
     /* Create a container for the bottom bar at the bottom of the button */
-    /* Button height is 22. We place the bottom bar at y = 20, height = 2. */
+    /* Button height is 22. We place the bottom bar at y = 19, height = 3. */
     lv_obj_t * bar = lv_obj_create(parent);
-    lv_obj_set_size(bar, width, 2);
-    lv_obj_set_pos(bar, 0, 20);
+    lv_obj_set_size(bar, width, 3);
+    lv_obj_set_pos(bar, 0, 19);
     lv_obj_set_style_bg_opa(bar, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(bar, 0, 0);
     lv_obj_set_style_pad_all(bar, 0, 0);
     lv_obj_set_scrollbar_mode(bar, LV_SCROLLBAR_MODE_OFF);
     lv_obj_add_flag(bar, LV_OBJ_FLAG_HIDDEN); /* Hidden by default */
     
-    /* Left solid segment of the bar */
-    int left_width = width - 29; /* e.g. 85 - 29 = 56 */
-    if(left_width < 10) left_width = 10;
+    /* Calculate segment widths dynamically to support varying widths if needed */
+    int w_main = (width * 80) / 100;
+    int w_dark1 = (width * 10) / 100;
+    int w_dark2 = (width * 20) / 300;
+    int w_dark3 = width - w_main - w_dark1 - w_dark2; // ensure exact total width
     
-    lv_obj_t * seg1 = lv_obj_create(bar);
-    lv_obj_set_size(seg1, left_width, 2);
-    lv_obj_set_pos(seg1, 0, 0);
-    lv_obj_set_style_bg_color(seg1, COLOR_CYAN, 0);
-    lv_obj_set_style_bg_opa(seg1, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(seg1, 0, 0);
-    lv_obj_set_style_radius(seg1, 0, 0);
+    /* For width = 85:
+       w_main = 68 px
+       w_dark1 = 9 px
+       w_dark2 = 6 px
+       w_dark3 = 2 px
+       This yields exactly a 3:2:1 ratio for the 17px transition zone (9:6:2 px).
+    */
+    if (width == 85) {
+        w_main = 68;
+        w_dark1 = 9;
+        w_dark2 = 6;
+        w_dark3 = 2;
+    }
     
-    /* First gap: 4px. First dash: 6px */
-    lv_obj_t * seg2 = lv_obj_create(bar);
-    lv_obj_set_size(seg2, 6, 2);
-    lv_obj_set_pos(seg2, left_width + 4, 0);
-    lv_obj_set_style_bg_color(seg2, COLOR_CYAN, 0);
-    lv_obj_set_style_bg_opa(seg2, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(seg2, 0, 0);
-    lv_obj_set_style_radius(seg2, 0, 0);
+    // Segment 1: Main Blue (Cyan)
+    if(w_main > 0) {
+        lv_obj_t * seg1 = lv_obj_create(bar);
+        lv_obj_set_size(seg1, w_main, 3);
+        lv_obj_set_pos(seg1, 0, 0);
+        lv_obj_set_style_bg_color(seg1, COLOR_CYAN, 0);
+        lv_obj_set_style_bg_opa(seg1, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_width(seg1, 0, 0);
+        lv_obj_set_style_radius(seg1, 0, 0);
+    }
     
-    /* Second gap: 5px. Second dash: 3px */
-    lv_obj_t * seg3 = lv_obj_create(bar);
-    lv_obj_set_size(seg3, 3, 2);
-    lv_obj_set_pos(seg3, left_width + 4 + 6 + 5, 0);
-    lv_obj_set_style_bg_color(seg3, COLOR_CYAN, 0);
-    lv_obj_set_style_bg_opa(seg3, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(seg3, 0, 0);
-    lv_obj_set_style_radius(seg3, 0, 0);
+    // Segment 2: Dark Blue 1
+    if(w_dark1 > 0) {
+        lv_obj_t * seg2 = lv_obj_create(bar);
+        lv_obj_set_size(seg2, w_dark1, 3);
+        lv_obj_set_pos(seg2, w_main, 0);
+        lv_obj_set_style_bg_color(seg2, COLOR_DARK_BLUE_1, 0);
+        lv_obj_set_style_bg_opa(seg2, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_width(seg2, 0, 0);
+        lv_obj_set_style_radius(seg2, 0, 0);
+    }
     
-    /* Third gap: 6px. Third dash: 1px */
-    lv_obj_t * seg4 = lv_obj_create(bar);
-    lv_obj_set_size(seg4, 1, 2);
-    lv_obj_set_pos(seg4, left_width + 4 + 6 + 5 + 3 + 6, 0);
-    lv_obj_set_style_bg_color(seg4, COLOR_CYAN, 0);
-    lv_obj_set_style_bg_opa(seg4, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(seg4, 0, 0);
-    lv_obj_set_style_radius(seg4, 0, 0);
+    // Segment 3: Dark Blue 2
+    if(w_dark2 > 0) {
+        lv_obj_t * seg3 = lv_obj_create(bar);
+        lv_obj_set_size(seg3, w_dark2, 3);
+        lv_obj_set_pos(seg3, w_main + w_dark1, 0);
+        lv_obj_set_style_bg_color(seg3, COLOR_DARK_BLUE_2, 0);
+        lv_obj_set_style_bg_opa(seg3, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_width(seg3, 0, 0);
+        lv_obj_set_style_radius(seg3, 0, 0);
+    }
+    
+    // Segment 4: Dark Blue 3
+    if(w_dark3 > 0) {
+        lv_obj_t * seg4 = lv_obj_create(bar);
+        lv_obj_set_size(seg4, w_dark3, 3);
+        lv_obj_set_pos(seg4, w_main + w_dark1 + w_dark2, 0);
+        lv_obj_set_style_bg_color(seg4, COLOR_DARK_BLUE_3, 0);
+        lv_obj_set_style_bg_opa(seg4, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_width(seg4, 0, 0);
+        lv_obj_set_style_radius(seg4, 0, 0);
+    }
     
     return bar;
 }
@@ -320,7 +350,9 @@ static void init_styles(void)
 
     /* Buttons - focused (bright cyan border highlight) */
     lv_style_init(&style_btn_focused);
-    lv_style_set_border_width(&style_btn_focused, 0); // Remove border, we will use our under-sampled custom bottom bar!
+    lv_style_set_border_width(&style_btn_focused, 1); // Keep the clean normal border
+    lv_style_set_border_color(&style_btn_focused, COLOR_GRAY); // Keep the normal gray color, no highlight outline
+    lv_style_set_outline_width(&style_btn_focused, 0); // Completely disable the default LVGL focus outline frame!
     lv_style_set_bg_color(&style_btn_focused, COLOR_BG);
     lv_style_set_bg_opa(&style_btn_focused, LV_OPA_COVER);
     lv_style_set_radius(&style_btn_focused, 0); // Explicitly square!

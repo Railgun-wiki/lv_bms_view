@@ -370,8 +370,7 @@ static void init_styles(void)
     lv_style_set_border_color(&style_btn_normal, COLOR_GRAY);
     lv_style_set_text_color(&style_btn_normal, COLOR_CYAN);
     lv_style_set_text_font(&style_btn_normal, &lv_font_montserrat_12);
-    lv_style_set_pad_ver(&style_btn_normal, 3);
-    lv_style_set_pad_hor(&style_btn_normal, 4);
+    lv_style_set_pad_all(&style_btn_normal, 0);
     lv_style_set_radius(&style_btn_normal, 0); // Explicitly square!
 
     /* Buttons - focused (bright cyan border highlight) */

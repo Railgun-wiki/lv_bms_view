@@ -312,12 +312,24 @@ static void footer_menu_focus_cb(lv_event_t * e)
         lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
         if(lbl_footer_indicator) {
             lv_obj_set_style_text_color(lbl_footer_indicator, lv_color_white(), 0);
+            switch(current_page) {
+                case 0: lv_label_set_text(lbl_footer_indicator, "* - - -"); break;
+                case 1: lv_label_set_text(lbl_footer_indicator, "- * - -"); break;
+                case 2: lv_label_set_text(lbl_footer_indicator, "- - * -"); break;
+                case 3: lv_label_set_text(lbl_footer_indicator, "- - - *"); break;
+            }
         }
     }
     else if(code == LV_EVENT_DEFOCUSED) {
         lv_obj_set_style_bg_opa(btn, LV_OPA_TRANSP, 0);
         if(lbl_footer_indicator) {
             lv_obj_set_style_text_color(lbl_footer_indicator, COLOR_CYAN, 0);
+            switch(current_page) {
+                case 0: lv_label_set_text(lbl_footer_indicator, "[ * - - - ]"); break;
+                case 1: lv_label_set_text(lbl_footer_indicator, "[ - * - - ]"); break;
+                case 2: lv_label_set_text(lbl_footer_indicator, "[ - - * - ]"); break;
+                case 3: lv_label_set_text(lbl_footer_indicator, "[ - - - * ]"); break;
+            }
         }
     }
 }
@@ -547,7 +559,7 @@ static void create_global_header_footer(void)
     lv_obj_set_style_pad_all(footer_circle, 0, 0);
     lv_obj_set_style_shadow_width(footer_circle, 0, 0);
     lv_obj_set_style_outline_width(footer_circle, 0, 0);
-    lv_obj_set_style_bg_color(footer_circle, COLOR_GOLD, 0);
+    lv_obj_set_style_bg_color(footer_circle, COLOR_DS_TEAL, 0);
     lv_obj_set_style_bg_opa(footer_circle, LV_OPA_COVER, 0);
 
     /* Selectable footer menu button in the bottom-right corner */
@@ -814,6 +826,15 @@ static void switch_page(int page_idx)
 {
     if(page_idx < 0 || page_idx >= 4) return;
 
+    /* Detect if the footer menu button is currently focused to preserve focus */
+    bool keep_footer_focused = false;
+    lv_group_t * g_check = lv_group_get_default();
+    if(g_check && btn_footer_menu) {
+        if(lv_group_get_focused(g_check) == btn_footer_menu) {
+            keep_footer_focused = true;
+        }
+    }
+
     /* Hide all views */
     for(int i = 0; i < 4; i++) {
         if(page_containers[i]) {
@@ -828,11 +849,21 @@ static void switch_page(int page_idx)
 
     /* Update standard ASCII page indicators (removes box symbols) */
     if(lbl_footer_indicator) {
-        switch(page_idx) {
-            case 0: lv_label_set_text(lbl_footer_indicator, "[ * - - - ]"); break;
-            case 1: lv_label_set_text(lbl_footer_indicator, "[ - * - - ]"); break;
-            case 2: lv_label_set_text(lbl_footer_indicator, "[ - - * - ]"); break;
-            case 3: lv_label_set_text(lbl_footer_indicator, "[ - - - * ]"); break;
+        bool focused = (btn_footer_menu && lv_obj_has_state(btn_footer_menu, LV_STATE_FOCUSED));
+        if(focused) {
+            switch(page_idx) {
+                case 0: lv_label_set_text(lbl_footer_indicator, "* - - -"); break;
+                case 1: lv_label_set_text(lbl_footer_indicator, "- * - -"); break;
+                case 2: lv_label_set_text(lbl_footer_indicator, "- - * -"); break;
+                case 3: lv_label_set_text(lbl_footer_indicator, "- - - *"); break;
+            }
+        } else {
+            switch(page_idx) {
+                case 0: lv_label_set_text(lbl_footer_indicator, "[ * - - - ]"); break;
+                case 1: lv_label_set_text(lbl_footer_indicator, "[ - * - - ]"); break;
+                case 2: lv_label_set_text(lbl_footer_indicator, "[ - - * - ]"); break;
+                case 3: lv_label_set_text(lbl_footer_indicator, "[ - - - * ]"); break;
+            }
         }
     }
 
@@ -871,19 +902,31 @@ static void switch_page(int page_idx)
                 lv_group_add_obj(g, btn_p2_iset);
                 lv_group_add_obj(g, btn_p2_toggle);
                 lv_group_add_obj(g, btn_footer_menu);
-                lv_group_focus_obj(btn_p2_uset);
+                if(keep_footer_focused) {
+                    lv_group_focus_obj(btn_footer_menu);
+                } else {
+                    lv_group_focus_obj(btn_p2_uset);
+                }
                 break;
             case 2:
                 lv_group_add_obj(g, btn_p3_idis);
                 lv_group_add_obj(g, btn_p3_toggle);
                 lv_group_add_obj(g, btn_footer_menu);
-                lv_group_focus_obj(btn_p3_idis);
+                if(keep_footer_focused) {
+                    lv_group_focus_obj(btn_footer_menu);
+                } else {
+                    lv_group_focus_obj(btn_p3_idis);
+                }
                 break;
             case 3:
                 lv_group_add_obj(g, btn_p4_baud);
                 lv_group_add_obj(g, btn_p4_port);
                 lv_group_add_obj(g, btn_footer_menu);
-                lv_group_focus_obj(btn_p4_baud);
+                if(keep_footer_focused) {
+                    lv_group_focus_obj(btn_footer_menu);
+                } else {
+                    lv_group_focus_obj(btn_p4_baud);
+                }
                 break;
         }
     }
@@ -1306,13 +1349,13 @@ static void bms_sim_tick(lv_timer_t * timer)
     /* Update footer circle status dynamic color / flashing */
     if(footer_circle) {
         if(current_page == 0 || current_page == 3) {
-            lv_obj_set_style_bg_color(footer_circle, COLOR_GOLD, 0);
+            lv_obj_set_style_bg_color(footer_circle, COLOR_DS_TEAL, 0);
             lv_obj_set_style_bg_opa(footer_circle, LV_OPA_COVER, 0);
         } else {
             bool blink_on = (lv_tick_get() % 1000) < 500;
             if(blink_on) {
                 bool active = (current_page == 1) ? charge_active : discharge_active;
-                lv_obj_set_style_bg_color(footer_circle, active ? COLOR_RED : COLOR_GREEN, 0);
+                lv_obj_set_style_bg_color(footer_circle, active ? COLOR_RED : COLOR_DS_TEAL, 0);
                 lv_obj_set_style_bg_opa(footer_circle, LV_OPA_COVER, 0);
             } else {
                 lv_obj_set_style_bg_opa(footer_circle, LV_OPA_TRANSP, 0);

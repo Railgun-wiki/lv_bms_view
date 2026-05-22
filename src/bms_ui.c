@@ -13,10 +13,12 @@
 #define COLOR_GRAY        lv_color_make(0x55, 0x66, 0x77) // Muted Gray
 #define COLOR_DARK_GRAY   lv_color_make(0x11, 0x16, 0x1B) // Selected Background
 
+#define COLOR_HUD_BLUE    lv_color_make(0x00, 0x66, 0xBB) // Selection bar main color
+
 /* Stepped Dark Blue tones for HUD gradient color scale bar */
-#define COLOR_DARK_BLUE_1 lv_color_make(0x00, 0xAC, 0xC0) // 75% Chiral Cyan brightness
-#define COLOR_DARK_BLUE_2 lv_color_make(0x00, 0x73, 0x80) // 50% Chiral Cyan brightness
-#define COLOR_DARK_BLUE_3 lv_color_make(0x00, 0x39, 0x40) // 25% Chiral Cyan brightness
+#define COLOR_DARK_BLUE_1 lv_color_make(0x00, 0x4C, 0x8C) // 75% HUD Blue brightness
+#define COLOR_DARK_BLUE_2 lv_color_make(0x00, 0x33, 0x5D) // 50% HUD Blue brightness
+#define COLOR_DARK_BLUE_3 lv_color_make(0x00, 0x1A, 0x2E) // 25% HUD Blue brightness
 
 /**********************
  *  STATIC VARIABLES
@@ -119,7 +121,7 @@ static void widget_key_handler(lv_event_t * e);
 static void global_key_handler(lv_event_t * e);
 static void button_focus_event_cb(lv_event_t * e);
 static lv_obj_t * create_undersampled_bottom_bar(lv_obj_t * parent, int width);
-static void child_created_event_cb(lv_event_t * e);
+static lv_obj_t * get_hud_button_label(lv_obj_t * btn);
 static lv_obj_t * get_hud_button_bottom_bar(lv_obj_t * btn);
 
 /**********************
@@ -225,16 +227,17 @@ static lv_obj_t * get_hud_button_bottom_bar(lv_obj_t * btn)
     return NULL;
 }
 
-static void child_created_event_cb(lv_event_t * e)
+static lv_obj_t * get_hud_button_label(lv_obj_t * btn)
 {
-    lv_obj_t * btn = lv_event_get_current_target(e);
+    if(!btn) return NULL;
     uint32_t cnt = lv_obj_get_child_cnt(btn);
-    if(cnt < 2) return;
-    
-    lv_obj_t * bottom_bar = get_hud_button_bottom_bar(btn);
-    if(bottom_bar) {
-        lv_obj_move_to_index(bottom_bar, cnt - 1);
+    for(uint32_t i = 0; i < cnt; i++) {
+        lv_obj_t * child = lv_obj_get_child(btn, i);
+        if(child && lv_obj_check_type(child, &lv_label_class)) {
+            return child;
+        }
     }
+    return NULL;
 }
 
 static void button_focus_event_cb(lv_event_t * e)
@@ -259,11 +262,11 @@ static void button_focus_event_cb(lv_event_t * e)
 
 static lv_obj_t * create_undersampled_bottom_bar(lv_obj_t * parent, int width)
 {
-    /* Create a container for the bottom bar at the bottom of the button */
-    /* Button height is 22. We place the bottom bar at y = 19, height = 3. */
+    /* Create a container for the selection bar covering the full button background */
+    /* Button height is 22. We place the bar at y = 0, height = 22. */
     lv_obj_t * bar = lv_obj_create(parent);
-    lv_obj_set_size(bar, width, 3);
-    lv_obj_set_pos(bar, 0, 19);
+    lv_obj_set_size(bar, width, 22);
+    lv_obj_set_pos(bar, 0, 0);
     lv_obj_set_style_bg_opa(bar, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(bar, 0, 0);
     lv_obj_set_style_pad_all(bar, 0, 0);
@@ -282,7 +285,7 @@ static lv_obj_t * create_undersampled_bottom_bar(lv_obj_t * parent, int width)
        w_dark2 = 6 px
        w_dark3 = 2 px
        This yields exactly a 3:2:1 ratio for the 17px transition zone (9:6:2 px).
-    */
+     */
     if (width == 85) {
         w_main = 68;
         w_dark1 = 9;
@@ -290,12 +293,12 @@ static lv_obj_t * create_undersampled_bottom_bar(lv_obj_t * parent, int width)
         w_dark3 = 2;
     }
     
-    // Segment 1: Main Blue (Cyan)
+    // Segment 1: Main Blue (0x0066BB)
     if(w_main > 0) {
         lv_obj_t * seg1 = lv_obj_create(bar);
-        lv_obj_set_size(seg1, w_main, 3);
+        lv_obj_set_size(seg1, w_main, 22);
         lv_obj_set_pos(seg1, 0, 0);
-        lv_obj_set_style_bg_color(seg1, COLOR_CYAN, 0);
+        lv_obj_set_style_bg_color(seg1, COLOR_HUD_BLUE, 0);
         lv_obj_set_style_bg_opa(seg1, LV_OPA_COVER, 0);
         lv_obj_set_style_border_width(seg1, 0, 0);
         lv_obj_set_style_radius(seg1, 0, 0);
@@ -304,7 +307,7 @@ static lv_obj_t * create_undersampled_bottom_bar(lv_obj_t * parent, int width)
     // Segment 2: Dark Blue 1
     if(w_dark1 > 0) {
         lv_obj_t * seg2 = lv_obj_create(bar);
-        lv_obj_set_size(seg2, w_dark1, 3);
+        lv_obj_set_size(seg2, w_dark1, 22);
         lv_obj_set_pos(seg2, w_main, 0);
         lv_obj_set_style_bg_color(seg2, COLOR_DARK_BLUE_1, 0);
         lv_obj_set_style_bg_opa(seg2, LV_OPA_COVER, 0);
@@ -315,7 +318,7 @@ static lv_obj_t * create_undersampled_bottom_bar(lv_obj_t * parent, int width)
     // Segment 3: Dark Blue 2
     if(w_dark2 > 0) {
         lv_obj_t * seg3 = lv_obj_create(bar);
-        lv_obj_set_size(seg3, w_dark2, 3);
+        lv_obj_set_size(seg3, w_dark2, 22);
         lv_obj_set_pos(seg3, w_main + w_dark1, 0);
         lv_obj_set_style_bg_color(seg3, COLOR_DARK_BLUE_2, 0);
         lv_obj_set_style_bg_opa(seg3, LV_OPA_COVER, 0);
@@ -326,7 +329,7 @@ static lv_obj_t * create_undersampled_bottom_bar(lv_obj_t * parent, int width)
     // Segment 4: Dark Blue 3
     if(w_dark3 > 0) {
         lv_obj_t * seg4 = lv_obj_create(bar);
-        lv_obj_set_size(seg4, w_dark3, 3);
+        lv_obj_set_size(seg4, w_dark3, 22);
         lv_obj_set_pos(seg4, w_main + w_dark1 + w_dark2, 0);
         lv_obj_set_style_bg_color(seg4, COLOR_DARK_BLUE_3, 0);
         lv_obj_set_style_bg_opa(seg4, LV_OPA_COVER, 0);
@@ -368,7 +371,7 @@ static void init_styles(void)
     lv_style_set_bg_opa(&style_btn_normal, LV_OPA_COVER);
     lv_style_set_border_width(&style_btn_normal, 1);
     lv_style_set_border_color(&style_btn_normal, COLOR_GRAY);
-    lv_style_set_text_color(&style_btn_normal, COLOR_CYAN);
+    lv_style_set_text_color(&style_btn_normal, lv_color_white());
     lv_style_set_text_font(&style_btn_normal, &lv_font_montserrat_12);
     lv_style_set_pad_all(&style_btn_normal, 0);
     lv_style_set_radius(&style_btn_normal, 0); // Explicitly square!
@@ -560,7 +563,6 @@ static void setup_hud_button(lv_obj_t * btn)
 
     lv_obj_add_event_cb(btn, widget_click_handler, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(btn, widget_key_handler, LV_EVENT_KEY, NULL);
-    lv_obj_add_event_cb(btn, child_created_event_cb, LV_EVENT_CHILD_CREATED, NULL);
     create_undersampled_bottom_bar(btn, 85);
     lv_obj_add_event_cb(btn, button_focus_event_cb, LV_EVENT_FOCUSED, NULL);
     lv_obj_add_event_cb(btn, button_focus_event_cb, LV_EVENT_DEFOCUSED, NULL);
@@ -644,7 +646,7 @@ static void create_page_discharge(void)
     btn_p3_toggle = lv_button_create(p);
     lv_obj_set_pos(btn_p3_toggle, 4, 52);
     setup_hud_button(btn_p3_toggle);
-    lv_obj_set_style_text_color(btn_p3_toggle, COLOR_CYAN, 0);
+    lv_obj_set_style_text_color(btn_p3_toggle, lv_color_white(), 0);
     lv_obj_t * lbl_toggle = lv_label_create(btn_p3_toggle);
     lv_label_set_text(lbl_toggle, "DSC: OFF");
     lv_obj_center(lbl_toggle);
@@ -822,7 +824,7 @@ static void widget_click_handler(lv_event_t * e)
         discharge_active = 0; /* Turn off discharge */
         low_volt_alert = 0;
 
-        lv_obj_t * lbl = lv_obj_get_child(btn_p2_toggle, 0);
+        lv_obj_t * lbl = get_hud_button_label(btn_p2_toggle);
         if(charge_active) {
             lv_label_set_text(lbl, "CHG: ON");
             lv_obj_set_style_text_color(btn_p2_toggle, COLOR_GOLD, 0);
@@ -832,9 +834,9 @@ static void widget_click_handler(lv_event_t * e)
         }
         /* Reset discharge button label if visible */
         if(btn_p3_toggle) {
-            lv_obj_t * p3_lbl = lv_obj_get_child(btn_p3_toggle, 0);
+            lv_obj_t * p3_lbl = get_hud_button_label(btn_p3_toggle);
             lv_label_set_text(p3_lbl, "DSC: OFF");
-            lv_obj_set_style_text_color(btn_p3_toggle, COLOR_CYAN, 0);
+            lv_obj_set_style_text_color(btn_p3_toggle, lv_color_white(), 0);
         }
     }
     else if(obj == btn_p3_toggle) {
@@ -843,17 +845,17 @@ static void widget_click_handler(lv_event_t * e)
         charge_active = 0; /* Turn off charge */
         low_volt_alert = 0;
 
-        lv_obj_t * lbl = lv_obj_get_child(btn_p3_toggle, 0);
+        lv_obj_t * lbl = get_hud_button_label(btn_p3_toggle);
         if(discharge_active) {
             lv_label_set_text(lbl, "DSC: ON");
             lv_obj_set_style_text_color(btn_p3_toggle, COLOR_RED, 0);
         } else {
             lv_label_set_text(lbl, "DSC: OFF");
-            lv_obj_set_style_text_color(btn_p3_toggle, COLOR_CYAN, 0);
+            lv_obj_set_style_text_color(btn_p3_toggle, lv_color_white(), 0);
         }
         /* Reset charge button label if visible */
         if(btn_p2_toggle) {
-            lv_obj_t * p2_lbl = lv_obj_get_child(btn_p2_toggle, 0);
+            lv_obj_t * p2_lbl = get_hud_button_label(btn_p2_toggle);
             lv_label_set_text(p2_lbl, "CHG: OFF");
             lv_obj_set_style_text_color(btn_p2_toggle, COLOR_GOLD, 0);
         }
@@ -875,29 +877,29 @@ static void widget_key_handler(lv_event_t * e)
                 if(target_u_set > 5.00f) target_u_set = 5.00f;
                 char buf[20];
                 snprintf(buf, sizeof(buf), "U: %.2fV", target_u_set);
-                lv_label_set_text(lv_obj_get_child(btn_p2_uset, 0), buf);
+                lv_label_set_text(get_hud_button_label(btn_p2_uset), buf);
             }
             else if(obj == btn_p2_iset) {
                 target_i_set += 0.05f;
                 if(target_i_set > 5.00f) target_i_set = 5.00f;
                 char buf[20];
                 snprintf(buf, sizeof(buf), "I: %.2fA", target_i_set);
-                lv_label_set_text(lv_obj_get_child(btn_p2_iset, 0), buf);
+                lv_label_set_text(get_hud_button_label(btn_p2_iset), buf);
             }
             else if(obj == btn_p3_idis) {
                 target_i_dis += 0.10f;
                 if(target_i_dis > 10.00f) target_i_dis = 10.00f;
                 char buf[20];
                 snprintf(buf, sizeof(buf), "I: %.2fA", target_i_dis);
-                lv_label_set_text(lv_obj_get_child(btn_p3_idis, 0), buf);
+                lv_label_set_text(get_hud_button_label(btn_p3_idis), buf);
             }
             else if(obj == btn_p4_baud) {
                 baud_rate_idx = (baud_rate_idx + 1) % 2;
-                lv_label_set_text(lv_obj_get_child(btn_p4_baud, 0), baud_rate_idx ? "Baud:115K" : "Baud:9K6");
+                lv_label_set_text(get_hud_button_label(btn_p4_baud), baud_rate_idx ? "Baud:115K" : "Baud:9K6");
             }
             else if(obj == btn_p4_port) {
                 port_idx = (port_idx + 1) % 2;
-                lv_label_set_text(lv_obj_get_child(btn_p4_port, 0), port_idx ? "Port:UART1" : "Port:UART0");
+                lv_label_set_text(get_hud_button_label(btn_p4_port), port_idx ? "Port:UART1" : "Port:UART0");
             }
         }
         else if(key == LV_KEY_DOWN || key == LV_KEY_LEFT) {
@@ -906,29 +908,29 @@ static void widget_key_handler(lv_event_t * e)
                 if(target_u_set < 0.00f) target_u_set = 0.00f;
                 char buf[20];
                 snprintf(buf, sizeof(buf), "U: %.2fV", target_u_set);
-                lv_label_set_text(lv_obj_get_child(btn_p2_uset, 0), buf);
+                lv_label_set_text(get_hud_button_label(btn_p2_uset), buf);
             }
             else if(obj == btn_p2_iset) {
                 target_i_set -= 0.05f;
                 if(target_i_set < 0.00f) target_i_set = 0.00f;
                 char buf[20];
                 snprintf(buf, sizeof(buf), "I: %.2fA", target_i_set);
-                lv_label_set_text(lv_obj_get_child(btn_p2_iset, 0), buf);
+                lv_label_set_text(get_hud_button_label(btn_p2_iset), buf);
             }
             else if(obj == btn_p3_idis) {
                 target_i_dis -= 0.10f;
                 if(target_i_dis < 0.00f) target_i_dis = 0.00f;
                 char buf[20];
                 snprintf(buf, sizeof(buf), "I: %.2fA", target_i_dis);
-                lv_label_set_text(lv_obj_get_child(btn_p3_idis, 0), buf);
+                lv_label_set_text(get_hud_button_label(btn_p3_idis), buf);
             }
             else if(obj == btn_p4_baud) {
                 baud_rate_idx = (baud_rate_idx + 1) % 2;
-                lv_label_set_text(lv_obj_get_child(btn_p4_baud, 0), baud_rate_idx ? "Baud:115K" : "Baud:9K6");
+                lv_label_set_text(get_hud_button_label(btn_p4_baud), baud_rate_idx ? "Baud:115K" : "Baud:9K6");
             }
             else if(obj == btn_p4_port) {
                 port_idx = (port_idx + 1) % 2;
-                lv_label_set_text(lv_obj_get_child(btn_p4_port, 0), port_idx ? "Port:UART1" : "Port:UART0");
+                lv_label_set_text(get_hud_button_label(btn_p4_port), port_idx ? "Port:UART1" : "Port:UART0");
             }
         }
         else if(key == LV_KEY_ESC || key == LV_KEY_ENTER) {
@@ -1080,8 +1082,8 @@ static void bms_sim_tick(lv_timer_t * timer)
             batt_soc = 0.0f;
             discharge_active = 0;
             if(btn_p3_toggle) {
-                lv_label_set_text(lv_obj_get_child(btn_p3_toggle, 0), "DSC: OFF");
-                lv_obj_set_style_text_color(btn_p3_toggle, COLOR_CYAN, 0);
+                lv_label_set_text(get_hud_button_label(btn_p3_toggle), "DSC: OFF");
+                lv_obj_set_style_text_color(btn_p3_toggle, lv_color_white(), 0);
             }
         }
 
@@ -1093,8 +1095,8 @@ static void bms_sim_tick(lv_timer_t * timer)
             batt_u_real = batt_ocv;
             
             if(btn_p3_toggle) {
-                lv_label_set_text(lv_obj_get_child(btn_p3_toggle, 0), "DSC: OFF");
-                lv_obj_set_style_text_color(btn_p3_toggle, COLOR_CYAN, 0);
+                lv_label_set_text(get_hud_button_label(btn_p3_toggle), "DSC: OFF");
+                lv_obj_set_style_text_color(btn_p3_toggle, lv_color_white(), 0);
             }
         }
 

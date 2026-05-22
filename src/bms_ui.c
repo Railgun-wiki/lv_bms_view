@@ -164,6 +164,8 @@ void bms_ui_init(void)
         lv_obj_set_scrollbar_mode(page_containers[i], LV_SCROLLBAR_MODE_OFF);
         lv_obj_set_style_outline_width(page_containers[i], 0, 0);
         lv_obj_set_style_outline_width(page_containers[i], 0, LV_STATE_FOCUSED);
+        lv_obj_set_style_outline_width(page_containers[i], 0, LV_STATE_FOCUS_KEY);
+        lv_obj_set_style_outline_width(page_containers[i], 0, LV_STATE_FOCUSED | LV_STATE_FOCUS_KEY);
     }
 
     /* Initialize each page view */
@@ -388,6 +390,7 @@ static void init_styles(void)
     lv_style_set_border_width(&style_btn_editing, 1);
     lv_style_set_border_color(&style_btn_editing, COLOR_GOLD);
     lv_style_set_text_color(&style_btn_editing, COLOR_BG);
+    lv_style_set_outline_width(&style_btn_editing, 0); // Disable outline during editing!
     lv_style_set_radius(&style_btn_editing, 0); // Explicitly square!
 }
 
@@ -537,13 +540,24 @@ static void setup_hud_button(lv_obj_t * btn)
     lv_obj_set_size(btn, 85, 22);
     lv_obj_add_style(btn, &style_btn_normal, 0);
     lv_obj_add_style(btn, &style_btn_focused, LV_STATE_FOCUSED);
+    lv_obj_add_style(btn, &style_btn_focused, LV_STATE_FOCUS_KEY);
+    lv_obj_add_style(btn, &style_btn_focused, LV_STATE_FOCUSED | LV_STATE_FOCUS_KEY);
     lv_obj_add_style(btn, &style_btn_editing, LV_STATE_USER_1);
+    lv_obj_add_style(btn, &style_btn_editing, LV_STATE_USER_1 | LV_STATE_FOCUS_KEY);
 
     /* Bulletproof focus outline and border local overrides to override default theme selection boxes */
     lv_obj_set_style_outline_width(btn, 0, LV_STATE_FOCUSED);
+    lv_obj_set_style_outline_width(btn, 0, LV_STATE_FOCUS_KEY);
+    lv_obj_set_style_outline_width(btn, 0, LV_STATE_FOCUSED | LV_STATE_FOCUS_KEY);
     lv_obj_set_style_outline_width(btn, 0, 0);
+    
     lv_obj_set_style_border_width(btn, 1, LV_STATE_FOCUSED);
+    lv_obj_set_style_border_width(btn, 1, LV_STATE_FOCUS_KEY);
+    lv_obj_set_style_border_width(btn, 1, LV_STATE_FOCUSED | LV_STATE_FOCUS_KEY);
+    
     lv_obj_set_style_border_color(btn, COLOR_GRAY, LV_STATE_FOCUSED);
+    lv_obj_set_style_border_color(btn, COLOR_GRAY, LV_STATE_FOCUS_KEY);
+    lv_obj_set_style_border_color(btn, COLOR_GRAY, LV_STATE_FOCUSED | LV_STATE_FOCUS_KEY);
 
     lv_obj_add_event_cb(btn, widget_click_handler, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(btn, widget_key_handler, LV_EVENT_KEY, NULL);

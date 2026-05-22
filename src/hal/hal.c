@@ -1,5 +1,5 @@
 #include "hal.h"
-
+#include <SDL.h>
 
 lv_display_t * sdl_hal_init(int32_t w, int32_t h)
 {
@@ -7,11 +7,13 @@ lv_display_t * sdl_hal_init(int32_t w, int32_t h)
   lv_group_set_default(lv_group_create());
 
   lv_display_t * disp = lv_sdl_window_create(w, h);
+  lv_sdl_window_set_zoom(disp, 2.0f);
+  SDL_ShowCursor(SDL_DISABLE);
 
   lv_indev_t * mouse = lv_sdl_mouse_create();
-  lv_indev_set_group(mouse, lv_group_get_default());
   lv_indev_set_display(mouse, disp);
   lv_display_set_default(disp);
+
   /*Declare the image file.*/
   LV_IMAGE_DECLARE(mouse_cursor_icon); 
   lv_obj_t * cursor_obj;
@@ -19,8 +21,8 @@ lv_display_t * sdl_hal_init(int32_t w, int32_t h)
   cursor_obj = lv_image_create(lv_screen_active()); 
   /*Set the image source*/
   lv_image_set_src(cursor_obj, &mouse_cursor_icon);           
-  /*Connect the image  object to the driver*/
-  lv_indev_set_cursor(mouse, cursor_obj);             
+  /*Hide the cursor to maintain encoder-only look*/
+  lv_obj_add_flag(cursor_obj, LV_OBJ_FLAG_HIDDEN);             
 
   lv_indev_t * mousewheel = lv_sdl_mousewheel_create();
   lv_indev_set_display(mousewheel, disp);
@@ -32,3 +34,4 @@ lv_display_t * sdl_hal_init(int32_t w, int32_t h)
 
   return disp;
 }
+

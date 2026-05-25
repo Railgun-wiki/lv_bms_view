@@ -393,3 +393,279 @@ static void read_cb(lv_indev_t *indev, lv_indev_data_t *data)
 - 如果 Flash 仍超 64KB，考虑移除 `lv_chart` 控件，改用自定义绘制（节省 5-10KB）
 - SRAM 充足，无需进一步优化
 - 如果需要更高刷新率，可将 SPI 时钟提升到 36MHz（STM32F103 SPI1 最大 18MHz，APB2/2）
+
+---
+
+## 10. BMS-Core 项目集成方案
+
+### 10.1 现有硬件资源
+
+BMS-Core 项目已具备完整的硬件驱动，无需从头编写：
+
+| 驱动 | 文件 | 接口 | 状态 | 用途 |
+|------|------|------|------|------|
+| INA226 | `BSP/Src/ina226.cpp` | I2C1 (PB8/PB9) | 已集成 | 电压/电流/功率测量 |
+| DAC8562 | `BSP/Src/dac8562.cpp` | SPI1 (PA5/PA6/PA7), CS=PA4 | 已集成 | 模拟输出 |
+| ST7789 | `BSP/Src/st7789.cpp` | SPI1 共享, DC/RES/CS/BLK 待分配 | 已实现未实例化 | 240×135 LCD |
+| TIM2 | `Core/Src/tim.c` | PA0/PA1 | 已配置未使用 | 旋转编码器 |
+
+### 10.2 外设引脚分配
+
+```
+已占用:
+  I2C1:  PB8 (SCL), PB9 (SDA)     → INA226
+  I2C2:  PB10 (SCL), PB11 (SDA)   → 空闲（可用于扩展）
+  SPI1:  PA5 (SCK), PA6 (MISO), PA7 (MOSI) → DAC8562 + ST7789 共享
+  DAC CS: PA4 (软件控制)
+  TIM2:  PA0 (CH1), PA1 (CH2)     → 旋转编码器
+  UART1: PA9 (TX), PA10 (RX)      → 调试串口
+  USB:   PA11 (DM), PA12 (DP)     → 未使用
+  LED:   PC13
+  SWD:   PA13, PA14
+
+待分配（ST7789 LCD 引脚）:
+  DC:    建议 PB0
+  RES:   建议 PB1
+  CS:    建议 PB2
+  BLK:   建议 PB3（PWM 背光调节）或直接 VCC
+```
+
+### 10.3 SPI1 共享互斥
+
+DAC8562 和 ST7789 共享 SPI1，通过各自的 CS 引脚互斥访问：
+
+```
+DAC8562: PA4 = CS（低有效）
+ST7789:  PB2 = CS（低有效，待分配）
+
+规则：同一时刻只有一个设备的 CS 为低
+  - DAC8562 操作前: HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET)
+  - DAC8562 操作后: HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET)
+  - ST7789 flush 前: HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET)
+  - ST7789 flush 后: HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_SET)
+```
+
+ST7789 驱动已内置 CS 控制（通过 `Pins` 结构体），无需额外处理。
+
+### 10.4 LVGL 集成步骤
+
+#### 第一步：添加 LVGL 库
+
+```bash
+cd BMS-Core/Middlewares
+git submodule add https://github.com/lvgl/lvgl.git
+git checkout v9.1  # 或最新稳定版
+```
+
+在 `CMakeLists.txt` 中添加：
+```cmake
+add_subdirectory(Middlewares/lvgl)
+target_link_libraries(${PROJECT_NAME} lvgl)
+```
+
+#### 第二步：创建 lv_conf.h
+
+从 `lv_conf_template.h` 复制，应用第 4 节的全部优化配置。
+
+#### 第三步：ST7789 → LVGL 显示驱动桥接
+
+```c
+// App/Src/lv_port_disp.cpp
+#include "lvgl.h"
+#include "st7789.hpp"
+
+static lv_display_t *disp;
+static St7789::Pins lcd_pins = {
+    .cs_port = GPIOB, .cs_pin = GPIO_PIN_2,
+    .dc_port = GPIOB, .dc_pin = GPIO_PIN_0,
+    .res_port = GPIOB, .res_pin = GPIO_PIN_1,
+    .blk_port = GPIOB, .blk_pin = GPIO_PIN_3,
+};
+static St7789 lcd(&hspi1, lcd_pins);
+
+// 10 行部分缓冲（4,800 字节）
+#define BUF_LINES  10
+static uint16_t buf1[240 * BUF_LINES];
+
+static void flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
+{
+    lcd.flush_cb(area->x1, area->y1, area->x2, area->y2, (uint16_t *)px_map);
+    lv_display_flush_ready(disp);
+}
+
+void lv_port_disp_init(void)
+{
+    lcd.init(St7789::LANDSCAPE);
+    disp = lv_display_create(240, 135);
+    lv_display_set_flush_cb(disp, flush_cb);
+    lv_display_set_buffers(disp, buf1, NULL, sizeof(buf1), LV_DISPLAY_RENDER_MODE_PARTIAL);
+}
+```
+
+#### 第四步：TIM2 编码器 → LVGL 输入设备
+
+```c
+// App/Src/lv_port_indev.cpp
+#include "lvgl.h"
+#include "tim.h"
+
+static lv_indev_t *indev_enc;
+
+static void read_cb(lv_indev_t *indev, lv_indev_data_t *data)
+{
+    static int32_t last_count = 0;
+    int32_t count = (int32_t)__HAL_TIM_GET_COUNTER(&htim2);
+    int32_t diff = (count - last_count) / 4;  // 编码器 4 倍频
+    last_count = count;
+
+    data->enc_diff = diff;
+
+    // 编码器按下 → ENTER，可额外接一个 GPIO 按键做 ESC
+    // PA2 = ENTER（编码器按键），PA3 = ESC（独立按键）
+    if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_2) == GPIO_PIN_RESET)
+        data->key = LV_KEY_ENTER;
+    else if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_3) == GPIO_PIN_RESET)
+        data->key = LV_KEY_ESC;
+    else
+        data->key = 0;
+
+    data->state = (data->key != 0) ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
+}
+
+void lv_port_indev_init(void)
+{
+    HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
+
+    indev_enc = lv_indev_create();
+    lv_indev_set_type(indev_enc, LV_INDEV_TYPE_ENCODER);
+    lv_indev_set_read_cb(indev_enc, read_cb);
+    lv_indev_set_group(indev_enc, lv_group_get_default());
+}
+```
+
+#### 第五步：SysTick 添加 lv_tick_inc
+
+```c
+// Core/Src/stm32f1xx_it.c → SysTick_Handler
+void SysTick_Handler(void)
+{
+    HAL_IncTick();
+    lv_tick_inc(1);  // 添加此行
+}
+```
+
+#### 第六步：主循环集成
+
+```c
+// App/Src/app.cpp
+#include "lvgl.h"
+#include "lv_port_disp.h"
+#include "lv_port_indev.h"
+#include "bms_ui.h"
+#include "ina226.hpp"
+
+extern I2C_HandleTypeDef hi2c1;
+static Ina226 sensor(&hi2c1);
+
+void app_init(void)
+{
+    lv_init();
+    lv_port_disp_init();
+    lv_port_indev_init();
+    bms_ui_init();
+
+    sensor.init(2000, 15000);  // 2mOhm, 15A max
+}
+
+void app_run(void)
+{
+    // 读取真实硬件数据
+    int32_t voltage_mV = sensor.getBusVoltage_mV();
+    int32_t current_mA = sensor.getCurrent_mA();
+
+    // 替换模拟变量（需要在 bms_ui.c 中暴露 setter 或使用 Model 层）
+    // bms_model_set_voltage(voltage_mV);
+    // bms_model_set_current(current_mA);
+
+    lv_timer_handler();
+    HAL_Delay(5);  // 约 200Hz LVGL 刷新
+}
+```
+
+### 10.5 模拟变量 → 真实硬件映射
+
+| PC 模拟变量 | 来源 | 替换为 |
+|-------------|------|--------|
+| `batt_soc` (float) | 计算值 | INA226 电压查表或库仑计 |
+| `batt_ocv` (float) | SOC 多项式 | INA226 开路电压测量 |
+| `batt_u_real` (float) | 模拟值 | `sensor.getBusVoltage_mV()` |
+| `batt_i_real` (float) | 模拟值 | `sensor.getCurrent_mA()` |
+| `batt_t_real` (float) | 模拟值 | NTC 热敏电阻 ADC 读数（需添加 ADC） |
+| `batt_r_int` (float) | 固定值 | ΔV/ΔI 实时计算 |
+| `charge_active` (int) | 模拟 toggle | DAC8562 输出使能 |
+| `discharge_active` (int) | 模拟 toggle | DAC8562 输出使能 |
+| `target_u_set` (float) | 用户设置 | DAC8562 通道 A 输出电压 |
+| `target_i_set` (float) | 用户设置 | DAC8562 通道 B 输出电流限制 |
+| `baud_rate_idx` (int) | 模拟设置 | USART1 实际配置 |
+| `port_idx` (int) | 模拟设置 | 实际端口选择 |
+
+### 10.6 需要解决的问题
+
+#### 10.6.1 main.c / main.cpp 冲突
+`Core/Src/main.cpp`（旧版内联代码）和 `Core/Src/main.c`（新版 app 架构）都定义了 `main()`。CMakeLists.txt 当前编译 `main.cpp`。需要：
+- 删除或重命名 `main.cpp`
+- 确保 `main.c` 被编译
+- 或将 `main.c` 的逻辑合并到 `main.cpp`
+
+#### 10.6.2 ST7789 引脚配置
+ST7789 的 DC/RES/CS/BLK 引脚未在 CubeMX 中配置为 GPIO 输出。需要：
+- 在 `.ioc` 文件中添加 PB0-PB3 为 GPIO_Output
+- 或在代码中手动初始化
+
+#### 10.6.3 INA226 → bms_ui.c 数据桥接
+当前 `bms_ui.c` 的模拟变量都是 `static`，外部无法访问。需要：
+- 方案 A：在 `bms_ui.h` 中添加 setter 函数（最小改动）
+- 方案 B：实施 Model-View 分离（见 `docs/decoupling_proposal.md`）
+
+#### 10.6.4 C++ → C 混编
+BMS-Core 使用 C++17（BSP 驱动），但 LVGL 和 `bms_ui.c` 是 C。需要确保：
+- `bms_ui.h` 使用 `extern "C"` 包裹
+- LVGL 的 `lv_conf.h` 不与 C++ 冲突
+- CMakeLists.txt 正确处理 C/C++ 混合编译
+
+### 10.7 Flash 预算（BMS-Core 实际）
+
+| 组件 | Flash 占用 |
+|------|-----------|
+| STM32 HAL 库（已启用模块） | 8-12 KB |
+| INA226 驱动 (C++) | 1-2 KB |
+| DAC8562 驱动 (C++) | 1-2 KB |
+| ST7789 驱动 (C++) | 1-2 KB |
+| LVGL 核心（精简） | 30-40 KB |
+| Montserrat 12 + 28 | 18-30 KB |
+| bms_ui.c | 3-5 KB |
+| LVGL 集成胶水代码 | 1-2 KB |
+| **总计** | **63-95 KB** |
+
+**64KB Flash 极度紧张。** 必须：
+1. 使用 Montserrat 24 替代 28（节省 2-4KB）
+2. 或自定义数字精简字体（节省 10-20KB）
+3. 确保 `-Os` + `--gc-sections` 移除所有未引用代码
+4. 考虑移除 USB PCD 驱动（节省 2-4KB）
+5. 考虑移除 USART1（节省 1-2KB，用 SWD 调试）
+
+### 10.8 SRAM 预算（BMS-Core 实际）
+
+| 组件 | SRAM 占用 |
+|------|----------|
+| LVGL 显示缓冲区（10 行） | 4,800 B |
+| LVGL 内存池 | 8,192 B |
+| INA226 驱动实例 | 64 B |
+| DAC8562 驱动实例 | 32 B |
+| ST7789 驱动实例 | 32 B |
+| BMS 应用变量 | 256 B |
+| 栈 | 1,024 B |
+| 向量表 + 系统 | 512 B |
+| **总计** | **~15 KB** / 20 KB |
+
+SRAM 余量约 5KB，足够。

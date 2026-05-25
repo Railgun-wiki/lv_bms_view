@@ -248,12 +248,12 @@ int main(void)
 
 ### 3.3 字体精简
 
-当前启用了 Montserrat 8-48 全部字号，STM32 Flash 有限，仅保留实际使用的：
+STM32 Flash 有限，仅保留实际使用的两个字号（M14 未使用，所有 widget 显式设为 M12）：
 
 ```c
 #define LV_FONT_MONTSERRAT_8   0   // 未使用
 #define LV_FONT_MONTSERRAT_12  1   // 日志终端、小标签
-#define LV_FONT_MONTSERRAT_14  1   // 默认字体（LV_FONT_DEFAULT）
+#define LV_FONT_MONTSERRAT_14  0   // 未使用（LV_FONT_DEFAULT 被样式覆盖）
 #define LV_FONT_MONTSERRAT_16  0
 #define LV_FONT_MONTSERRAT_18  0
 #define LV_FONT_MONTSERRAT_20  0
@@ -264,6 +264,8 @@ int main(void)
 #define LV_FONT_MONTSERRAT_30  0
 // ... 其余全部 0
 ```
+
+> **进一步精简：** 使用字体工具生成 M12（64 字符）和 M28（11 字符）的精简子集，可节省 13-25 KB Flash。详见 [STM32F103 优化指南 Section 4.3](stm32f103_optimization.md#43-字体精简字符集)。
 
 ### 3.4 DMA 缓冲区对齐
 

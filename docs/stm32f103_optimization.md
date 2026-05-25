@@ -106,35 +106,42 @@ pie title Flash 优化后目标（< 58KB）
 
 ### 4.3 字体（精简字符集）
 
-通过分析 MVC 模块所有字符串字面量，实际仅使用 **59 个字符**：
+通过分析 MVC 模块所有字符串字面量，Montserrat 12 实际使用 **64 个字符**：
 
 ```
+A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
+a b d e f g h i l m n o p r s t u y
 0 1 2 3 4 5 6 7 8 9
-A B C D E F G H I K L M N O P R S T U V W X Y
-a b d f h i m n o r s t u
-! % * + - . : < > [ \ ] _ ' 空格
+! % * + - . : < > [ ] 空格
 ```
+
+Montserrat 28 仅用于 SoC 百分比显示（`%d%%`），只需 **11 个字符**：`0 1 2 3 4 5 6 7 8 9 %`
+
+> **注意：** 原 59 字符子集缺少 `e` 和 `g`（"ESTABLISHED"、"CHARGING" 等字符串需要），且包含未使用的 `"`、`'`、`_`。以下 range 已修正。
 
 使用 LVGL 官方字体工具（https://lvgl.io/tools/fontconverter）生成精简字体：
 
 | 字体 | 完整版 Flash | 精简版 Flash | 节省 |
 |------|-------------|-------------|------|
-| Montserrat 12 | 5-8 KB | ~1.5-2 KB | 3-6 KB |
-| Montserrat 28 | 13-22 KB | ~4-6 KB | 9-16 KB |
-| **总计** | **18-30 KB** | **5.5-8 KB** | **12-22 KB** |
+| Montserrat 12（64 字符） | 5-8 KB | ~1.5-2 KB | 3-6 KB |
+| Montserrat 28（11 字符） | 13-22 KB | ~2-3 KB | 10-19 KB |
+| ~~Montserrat 14~~ | ~~禁用~~ | — | — |
+| **总计** | **18-30 KB** | **3.5-5 KB** | **13-25 KB** |
 
 **生成步骤：**
 1. 访问 https://lvgl.io/tools/fontconverter
 2. 上传 Montserrat 字体文件（TTF/OTF）
 3. 设置 Size=12，Bpp=4
-4. 在 Range 字段输入：`0x20-0x22,0x25,0x27,0x2A-0x2E,0x30-0x39,0x3A,0x3C-0x3E,0x41-0x59,0x5B-0x5D,0x5F,0x61-0x62,0x64,0x66,0x68-0x69,0x6D-0x6F,0x72-0x75`
+4. 在 Range 字段输入：`0x20-0x21,0x25,0x2A-0x2E,0x30-0x39,0x3A,0x3C-0x3E,0x41-0x5A,0x5B-0x5D,0x61-0x62,0x64-0x67,0x68-0x69,0x6D-0x6F,0x72-0x75`
 5. 生成 C 文件，保存为 `fonts/montserrat_12_subset.c`
-6. 重复 Size=28 生成 `fonts/montserrat_28_subset.c`
+6. 重复 Size=28，Range 输入：`0x25,0x30-0x39`，生成 `fonts/montserrat_28_subset.c`
 
 ```c
 // lv_conf.h 配置：禁用所有内置字体
-#define LV_FONT_MONTSERRAT_12  0
-#define LV_FONT_MONTSERRAT_28  0
+#define LV_FONT_MONTSERRAT_8   0
+#define LV_FONT_MONTSERRAT_12  0   // 使用精简子集替代
+#define LV_FONT_MONTSERRAT_14  0   // 未使用，所有 widget 显式设为 M12
+#define LV_FONT_MONTSERRAT_28  0   // 使用精简子集替代
 // ... 所有其他字体设为 0
 
 // 在 lv_conf.h 或独立头文件中声明自定义字体

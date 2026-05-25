@@ -401,6 +401,65 @@ static void read_cb(lv_indev_t *indev, lv_indev_data_t *data)
 
 ---
 
+## 9.5 LVGL 进一步精简可行性
+
+### 9.5.1 最小可用 LVGL 配置
+
+bms_ui.c 实际仅使用 **6 种控件**和 **2 种混合格式**：
+
+| 类别 | 保留 | 禁用 |
+|------|------|------|
+| 控件 | obj, label, button, bar, chart, line | 其余 22+ 种 |
+| 混合格式 | RGB565, A8（字体抗锯齿） | RGB565_SWAPPED, RGB888, XRGB8888, ARGB8888, L8, AL88, I1 |
+| 布局 | 无（全部 `lv_obj_set_pos` 绝对定位） | flex, grid |
+| 主题 | 无（全部自定义 style） | default, simple, mono |
+| 图像 | 无 | lodepng, tjpgd, bmp, rle, qrcode, barcode |
+| 动画 | 无 | anim, animimg, lottie |
+| 矢量 | 无 | thorvg, vector_graphic |
+
+### 9.5.2 最小配置 Flash 预算
+
+| 组件 | 源码大小 | 编译后 Flash | 说明 |
+|------|---------|-------------|------|
+| LVGL 核心 | ~200 KB | 15-20 KB | obj, event, style, group, timer, display, indev |
+| 6 个控件 | ~150 KB | 8-12 KB | label(30K), button(15K), bar(15K), chart(40K), line(5K) |
+| `blend_to_rgb565.c` | 69 KB | 20-25 KB | **最大单项**，含 5 种混合模式（NORMAL/ADD/SUB/MUL/DIFF） |
+| `blend_to_a8.c` | 22 KB | 8-10 KB | 字体抗锯齿 alpha 混合 |
+| 核心绘制（line, rect, triangle, arc, text） | ~100 KB | 12-18 KB | 基础图元绘制 |
+| 精简字体 ×3 | ~15 KB | 5.5-8 KB | Montserrat 12/14/28 精简字符集 |
+| **总计** | | **68.5-93 KB** | |
+
+### 9.5.3 结论：LVGL 核心本身就是瓶颈
+
+**LVGL 核心 + RGB565 渲染引擎 ≈ 48-67KB**，加上字体和应用代码后接近或超过 64KB。
+
+进一步精简的可能方向：
+
+| 方案 | 节省 | 可行性 | 风险 |
+|------|------|--------|------|
+| 移除 `lv_chart`，改用自定义折线绘制 | 5-10 KB | 高 | 需要手写 ~200 行绘制代码 |
+| 移除 `lv_bar`，改用 `lv_obj` + 手动设置宽度 | 3-5 KB | 高 | SoC 进度条逻辑简单 |
+| 修改 `blend_to_rgb565.c`，移除非 NORMAL 混合模式 | 5-8 KB | 中 | 需要修改 LVGL 源码 |
+| 使用 1bpp 字体（无抗锯齿）替代 4bpp | 2-3 KB | 高 | 文字边缘锯齿明显 |
+| 移除 `LV_DRAW_SW_SUPPORT_A8` | 8-10 KB | 中 | 字体抗锯齿失效，但节省显著 |
+| 使用 LVGL v9 的 `LV_USE_VECTOR_GRAPHIC` 替代 SW 绘制 | 0 | 不适用 | F103 无 GPU |
+| 自己写最小 UI 库替代 LVGL | 40-50 KB | 低 | 工作量巨大，失去 LVGL 生态 |
+
+### 9.5.4 推荐策略
+
+**如果 64KB 确实不够：**
+1. 移除 `lv_chart` + `lv_bar`（节省 8-15KB），用自定义绘制替代
+2. 禁用 `LV_DRAW_SW_SUPPORT_A8`（节省 8-10KB），接受无抗锯齿
+3. 修改 LVGL 源码移除非 NORMAL 混合模式（节省 5-8KB）
+
+**如果 64KB 刚好够：**
+- 当前方案（精简字体 + 禁用未用控件/库）即可，无需进一步精简
+
+**如果需要更小的目标（如 STM32F103C6T6，32KB Flash）：**
+- 必须放弃 LVGL，使用自定义最小 UI 库
+
+---
+
 ## 10. BMS-Core 项目集成方案
 
 ### 10.1 现有硬件资源

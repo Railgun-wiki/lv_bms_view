@@ -582,7 +582,7 @@ static void create_global_header_footer(void)
     lv_obj_set_style_pad_all(footer_circle, 0, 0);
     lv_obj_set_style_shadow_width(footer_circle, 0, 0);
     lv_obj_set_style_outline_width(footer_circle, 0, 0);
-    lv_obj_set_style_bg_color(footer_circle, COLOR_DS_TEAL, 0);
+    lv_obj_set_style_bg_color(footer_circle, COLOR_GOLD, 0);
     lv_obj_set_style_bg_opa(footer_circle, LV_OPA_COVER, 0);
 
     /* Selectable footer menu button in the bottom-right corner */
@@ -1401,7 +1401,7 @@ static void bms_sim_tick(lv_timer_t * timer)
     /* Update footer circle status dynamic color / flashing */
     if(footer_circle) {
         if(current_page == 0 || current_page == 3) {
-            lv_obj_set_style_bg_color(footer_circle, COLOR_DS_TEAL, 0);
+            lv_obj_set_style_bg_color(footer_circle, COLOR_GOLD, 0);
             lv_obj_set_style_bg_opa(footer_circle, LV_OPA_COVER, 0);
         } else {
             bool blink_on = (lv_tick_get() % 1000) < 500;

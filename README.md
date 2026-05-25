@@ -1,189 +1,110 @@
-# VSCode Simulator project for LVGL
+# BMS UI 模拟器
 
-[LVGL](https://github.com/lvgl/lvgl) is written mainly for microcontrollers and embedded systems, however you can run the library **on your PC** as well without any embedded hardware. The code written on PC can be simply copied when your are using an embedded system.
+基于 [LVGL](https://github.com/lvgl/lvgl) 的电池管理系统（BMS）UI 模拟器。在 PC（SDL2）上运行完整的 BMS 界面，支持 STM32 嵌入式移植。
 
-This project is pre-configured for VSCode and should work work on Windows, Linux and MacOs as well. FreeRTOS is also included and can be optionally enabled to better simulate embedded system's behavior. 
+## 架构
 
-## Get started
+采用 Model-View-Controller 模式，View/Controller 为纯 C + LVGL 代码，可直接移植到嵌入式平台。
 
-### Install SDL and the build tools
+```mermaid
+graph TD
+    MAIN["main.c<br/>lv_init() → sdl_hal_init()<br/>bms_ui_init() → while(1) lv_timer_handler()"]
 
-- **Windows (vcpkg):** `vcpkg install sdl2`  (`vcpkg` can be installed from [https://github.com/microsoft/vcpkg](https://github.com/microsoft/vcpkg)) Also install either MinGW or another compiler and `cmake`.
-- **macOS (Homebrew):** `brew install sdl2 cmake make`  
-- **Linux:**  
-  - **Debian/Ubuntu:** `sudo apt install build-essential cmake libsdl2-dev`  
-  - **Arch:** `sudo pacman -S base-devel cmake sdl2`  
-  - **Fedora:** `sudo dnf install @development-tools cmake SDL2-devel`  
-- **Manual Installation of SDL:** Download from [SDL’s website](https://github.com/libsdl-org/SDL/releases) and place headers/libraries in your project.
-- **Verify Installation:** `sdl2-config --version`, `cmake --version`, `gcc --version`, `g++ --version` (should return the installed version).  
+    BRIDGE["bms_ui.cpp<br/>(C++ Composition Root)<br/>创建 LVGL 定时器 200ms / 1000ms<br/>组装 bms_data_bridge_t → 注入 Controller"]
 
-### Get the PC project
+    SIM["bms_sim.c (Model)<br/>电池物理 / CCCV 充电<br/>CC 放电 / 主机通信<br/>纯 C · int32_t 领域缩放"]
 
-Clone the PC project and the related sub modules:
+    VIEW["bms_ui_view.c (View)<br/>LVGL 控件 / 样式布局<br/>图表标签 / 页面切换<br/>只读 Model · int32_t"]
+
+    CTRL["bms_ui_ctrl.c (Controller)<br/>LVGL 事件回调 / 按键点击<br/>焦点管理 / 编辑模式状态机<br/>通过 bridge 函数指针注入"]
+
+    MAIN --> BRIDGE
+    BRIDGE --> SIM
+    BRIDGE --> VIEW
+    BRIDGE --> CTRL
+
+    style BRIDGE fill:#f9f,stroke:#333
+    style SIM fill:#bbf,stroke:#333
+    style VIEW fill:#bfb,stroke:#333
+    style CTRL fill:#fbb,stroke:#333
+```
+
+- **Model**（`src/sim/`）— 电池物理模拟，零 LVGL 依赖，`bms_state_t` 使用 `int32_t` 领域缩放整数（mV、mA、x10）
+- **View**（`src/view/`）— LVGL 控件创建、样式、数据刷新，分为 view/pages/styles/refresh 四个子模块
+- **Controller**（`src/controller/`）— LVGL 事件回调、焦点管理，通过 `bms_data_bridge_t` 函数指针访问 Model
+- **Composition Root**（`src/bms_ui.cpp`）— 唯一的 C++ 文件，组装依赖注入，创建 LVGL 定时器
+
+## 项目结构
+
+```
+src/
+├── main.c                    # 平台入口（PC SDL2 主循环）
+├── bms_state.h               # 共享数据结构（bms_state_t）
+├── bms_ui.h                  # 公共接口（extern "C"）
+├── bms_ui.cpp                # C++ 组合根
+├── hal/                      # 平台 HAL（SDL2 显示/输入）
+├── sim/                      # Model：电池物理模拟
+├── view/                     # View：LVGL 控件、样式、刷新
+│   ├── bms_ui_view.c         #   初始化、页面切换、widget getter
+│   ├── bms_ui_pages.c        #   4 个页面创建函数
+│   ├── bms_ui_styles.c       #   颜色定义、style 对象
+│   └── bms_ui_refresh.c      #   数据刷新、fmt_milli/fmt_x10 整数格式化
+└── controller/               # Controller：事件回调、焦点管理
+```
+
+## 快速开始
+
+### 安装依赖
 
 ```bash
-git clone --recursive https://github.com/lvgl/lv_port_pc_vscode
+# Debian/Ubuntu
+sudo apt install build-essential cmake libsdl2-dev
+
+# Arch
+sudo pacman -S base-devel cmake sdl2
 ```
 
-## Usage
-
-### Visual Studio Code
-
-1. Be sure you have installed [SDL and the build tools](#install-sdl-and-the-build-tools)
-2. Open the project by double clicking on `simulator.code-workspace` or opening it with `File/Open Workspace from File`
-3. Install the recommended plugins
-4. Click the Run and Debug page on the left, and select `Debug LVGL demo with gdb` from the drop-down on the top. Like this:
-![image](https://github.com/lvgl/lv_port_pc_vscode/assets/7599318/f527b235-5718-4949-b5f0-bd807b3a64ba)
-5. Click the Play button or hit F5 to start debugging.
-
-#### ArchLinux User
-
-VSCode does not officially provide an installation package under Arch, you need to use the AUR manager `paru` to install it.
-The command is as follows:
+### 构建运行
 
 ```bash
-paru -S visual-studio-code-bin
+cmake -B build
+cmake --build build -j
+./build/main
 ```
 
-#### macOS
-
-Apple's default clang does not support the `-fsanitize=leak` flag.
-
-to build using the latest version of clang from homebrew, do the following:
-
-1. `brew install llvm`
-
-2. cmd+shift+p and run `Cmake: select a kit`, then `[Scan for kits]`
-
-3. then cmd+shift+p and run `Cmake: select a kit`, select the version of clang you just installed from homebrew (it should say `Using compilers C=/opt/homebrew/opt/llvm/bin/clang ...`)
-
-4. reconfigure by running cmd+shift+p `Cmake: Configure`
-
-5. build using [step 4 above](#visual-studio-code)
-
-### FreeRTOS configuration
-To correctly configure the project, the RTOS (Real-Time Operating System) requires a significant amount of heap memory, especially when debugging an SDL (Simple DirectMedia Layer) window application. In this project, the heap memory has been experimentally set to **512 MB**.
-
-```c
-#define configTOTAL_HEAP_SIZE ( ( size_t ) ( 512 * 1024 * 1024 ) )  // 512 MB Heap
-```
-This configuration ensures that the SDL window is displayed in a timely manner. If this value is reduced, it may cause significant delays in the SDL window's appearance. If the allocated heap memory is too small, the window may fail to appear altogether.
-Therefore, it is crucial to allocate sufficient heap memory to ensure smooth execution and debugging experience.
-
-### Enable FreeRTOS 
-To enable the rtos part of this project select in lv_conf.h `#define LV_USE_OS   LV_OS_NONE` to `#define LV_USE_OS  LV_OS_FREERTOS`
-Additionaly you have to enable the compilation of all FreeRTOS Files by turning on the `option(USE_FREERTOS "Enable FreeRTOS" OFF)` in the CMakeLists.txt file or
-by enabling the same flag from the command line when bootstrapping `cmake`:
+### FreeRTOS 模式
 
 ```bash
 cmake -B build -DUSE_FREERTOS=ON
+cmake --build build -j
 ```
 
-### CMake
+FreeRTOS 模式需要在 `lv_conf.h` 中设置 `#define LV_USE_OS LV_OS_FREERTOS`，堆大小在 `config/FreeRTOSConfig.h` 中配置。
 
-This project uses CMake under the hood which can be used without Visula Studio Code too. Just type these in a Terminal when you are in the project's root folder:
+### VSCode 调试
 
-```bash
-mkdir build
-cd build
-cmake ..
-make -j
-```
+1. 安装推荐插件
+2. 打开 `simulator.code-workspace`
+3. 选择 `Debug LVGL demo with gdb`，按 F5 启动
 
-## Run demos and examples
+## LVGL 配置
 
-By default, the widgets demo (`lv_demo_widgets()`) will run. If you want to run a different demo or example from the LVGL library,
-simply replace the demo function call in the code with another one—such as `lv_demo_benchmark()` or `lv_example_label_1()`.
+关键配置项（`lv_conf.h`）：
 
-```c
-int main(int argc, char **argv)
-{
-  /* ... */
-  /* Run the default demo */
-  /* To try a different demo or example, replace this with one of: */
-  /* - lv_demo_benchmark(); */
-  /* - lv_demo_stress(); */
-  /* - lv_example_label_1(); */
-  /* - etc. */
-  lv_demo_widgets(); 
+| 配置项 | PC 值 | STM32 值 | 说明 |
+|--------|-------|----------|------|
+| `LV_COLOR_DEPTH` | 32 | 16 | SPI 屏用 RGB565 |
+| `LV_MEM_SIZE` | 1MB | 8-128KB | 根据 SRAM 调整 |
+| `LV_USE_SDL` | 1 | 0 | PC 用 SDL2 |
+| `LV_USE_OS` | `LV_OS_NONE` | `LV_OS_FREERTOS` | 可选 |
+| `LV_FONT_MONTSERRAT_*` | 全部 | 仅 12/14/28 | 节省 Flash |
 
-  while(1) {
-      /* ... */
-  }
-  return 0;
-}
-```
+## 文档
 
-## Optional library
+- [解耦方案](docs/decoupling_proposal.md) — MVC 架构设计与实施偏差说明
+- [STM32 移植指南](docs/stm32_porting_guide.md) — HAL 接口、lv_conf 配置、移植检查清单
+- [STM32F103 优化指南](docs/stm32f103_optimization.md) — Flash/SRAM 预算、字体精简、BMS-Core 集成
 
-There are also FreeType and FFmpeg support. You can install these according to the followings:
+## 移植到 STM32
 
-### Linux
-
-```bash
-# FreeType support
-wget https://kumisystems.dl.sourceforge.net/project/freetype/freetype2/2.13.2/freetype-2.13.2.tar.xz
-tar -xf freetype-2.13.2.tar.xz
-cd freetype-2.13.2
-make
-make install
-```
-
-```bash
-# FFmpeg support
-git clone https://git.ffmpeg.org/ffmpeg.git ffmpeg
-cd ffmpeg
-git checkout release/6.0
-./configure --disable-all --disable-autodetect --disable-podpages --disable-asm --enable-avcodec --enable-avformat --enable-decoders --enable-encoders --enable-demuxers --enable-parsers --enable-protocol='file' --enable-swscale --enable-zlib
-make
-sudo make install
-```
-### (RT)OS support
-Works with any OS like pthred, Windows, FreeRTOS, etc. It has build in support for FreeRTOS. 
-
-## Test
-This project is configured for [VSCode](https://code.visualstudio.com) and is tested on: 
-- Ubuntu Linux 
-- Windows WSL (Ubuntu Linux)
-
-It requires a working version of GCC, GDB and make in your path.
-
-To allow debugging inside VSCode you will also require a GDB [extension](https://marketplace.visualstudio.com/items?itemName=webfreak.debug) or other suitable debugger. All the requirements, build and debug settings have been pre-configured in the [.workspace](simulator.code-workspace) file.
-
-The project can use **SDL** but it can be easily relaced by any other built-in LVGL dirvers.
-
-## Integration with LVGL Pro
-
-This project supports integration with LVGL Pro projects for UI development.
-
-### Setup
-
-1. Configure CMake with your LVGL Pro project folder:
-
-```bash
-cmake -B build -DLVGL_PRO_PROJECT_DIR=<path-to-lvgl-pro-project>
-```
-
-Build your project:
-
-```bash
-cmake --build build
-```
-
-### Usage in Code
-
-In your main.c, include the UI header from your LVGL Pro project and replace the default demo with your screen.
-
-```c
-#include "ui.h"
-
-int main(void) {
-
-    /*Initialization code for LVGL*/
-    
-    /* Initialize the LVGL Pro UI */
-    ui_init("<path-to-lvgl-pro-project>");
-    
-    /* ... rest of your application ...*/
-}
-```
+只需替换 `src/sim/bms_sim.c` 为硬件驱动（读取 INA226/DAC8562/NTC），View 和 Controller 层完全复用。详见 [STM32 移植指南](docs/stm32_porting_guide.md)。

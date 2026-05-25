@@ -2,7 +2,29 @@
 
 ## 1. 架构概览
 
-当前项目基于 LVGL PC 模拟器（SDL2），运行在桌面环境。移植到 STM32 需要替换平台相关的 HAL 层，而 `bms_ui.c` 作为纯 LVGL 控件代码可直接复用。
+当前项目基于 LVGL PC 模拟器（SDL2），运行在桌面环境。移植到 STM32 需要替换平台相关的 HAL 层和 `bms_sim.c`（模拟逻辑），而 View/Controller 层作为纯 LVGL 控件代码可直接复用。
+
+### PC vs STM32 架构对比
+
+```mermaid
+graph LR
+    subgraph PC
+        SDL[SDL2 HAL] --> LVGL_P[LVGL]
+        SIM[bms_sim.c<br/>float 模拟] --> LVGL_P
+        LVGL_P --> VIEW_P[View / Controller]
+    end
+
+    subgraph STM32
+        HW[STM32 HAL<br/>SPI/LTDC + 编码器] --> LVGL_S[LVGL]
+        BMSHW[bms_hw.c<br/>INA226/DAC8562] --> LVGL_S
+        LVGL_S --> VIEW_S[View / Controller<br/>完全复用]
+    end
+
+    style SIM fill:#fbb,stroke:#333
+    style BMSHW fill:#bfb,stroke:#333
+    style VIEW_P fill:#bbf,stroke:#333
+    style VIEW_S fill:#bbf,stroke:#333
+```
 
 ### 文件变更矩阵
 
@@ -15,8 +37,15 @@
 | `CMakeLists.txt` | **修改** | 移除 SDL2，添加 STM32 工具链和 BSP |
 | `lv_conf.h` | **修改** | 见下方详细配置 |
 | `config/FreeRTOSConfig.h` | **修改** | 堆大小 512MB → 64-256KB |
-| `src/bms_ui.c` | 不变 | 纯 LVGL 控件，完全可移植 |
-| `src/bms_ui.h` | 不变 | 公共接口保持不变 |
+| `src/bms_ui.cpp` | 不变 | C++ 组合根，LVGL 定时器配置 |
+| `src/bms_ui.h` | 不变 | 公共接口（`extern "C"`） |
+| `src/bms_state.h` | 不变 | 共享数据结构（`int32_t` 类型） |
+| `src/sim/bms_sim.c` | **替换** | PC 模拟逻辑替换为真实硬件驱动（见下方说明） |
+| `src/sim/bms_sim.h` | 不变 | Model 接口定义 |
+| `src/view/*.c` | 不变 | LVGL 控件管理、页面创建、样式、数据刷新 |
+| `src/controller/bms_ui_ctrl.c` | 不变 | 事件回调/焦点管理 |
+
+> **关键：** 只有 `bms_sim.c` 需要替换为硬件驱动。View 和 Controller 层是纯 LVGL 代码，完全可移植。STM32 上用 `bms_hw.c` 实现 `bms_sim.h` 接口，读取 INA226/DAC8562/NTC 替代模拟变量。
 
 ---
 
@@ -105,6 +134,20 @@ static void read_cb(lv_indev_t *indev, lv_indev_data_t *data)
 
 BMS UI 使用编码器风格导航，STM32 输入方案：
 
+```mermaid
+graph LR
+    ENC["旋转编码器<br/>PA0/PA1"] -->|"enc_diff"| INDEV["LVGL Encoder<br/>Input Device"]
+    BTN_OK["确认键 PA2"] -->|"LV_KEY_ENTER"| INDEV
+    BTN_ESC["返回键 PA3"] -->|"LV_KEY_ESC"| INDEV
+    INDEV --> GROUP["LVGL Focus Group"]
+    GROUP --> UI["BMS UI 导航"]
+
+    style ENC fill:#f9f,stroke:#333
+    style INDEV fill:#bbf,stroke:#333
+```
+
+| PC 模拟键 | LVGL Key | STM32 硬件方案 |
+
 | PC 模拟键 | LVGL Key | STM32 硬件方案 |
 |-----------|----------|----------------|
 | 方向键 LEFT/RIGHT | `LV_KEY_LEFT`/`LV_KEY_RIGHT` | 编码器旋转 / GPIO 左右键 |
@@ -148,7 +191,7 @@ int main(void)
 
     lv_init();
     stm32_hal_init();
-    bms_ui_init();         // BMS UI 初始化，完全不变
+    bms_ui_init();         // 内部创建 LVGL 定时器（200ms/1000ms）驱动 tick 和刷新
 
     while (1) {
         uint32_t delay = lv_timer_handler();

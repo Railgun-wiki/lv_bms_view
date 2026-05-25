@@ -67,6 +67,8 @@ static lv_obj_t * lbl_header_link;
 static lv_obj_t * lbl_footer_indicator;
 static lv_obj_t * btn_footer_menu;
 static lv_obj_t * footer_circle;
+static bool footer_menu_selected = false;
+static bool switching_page = false;
 
 /* Page 1 (SoC Page) Components */
 static lv_obj_t * lbl_p1_soc;
@@ -290,6 +292,26 @@ static void button_focus_event_cb(lv_event_t * e)
     }
 }
 
+static void update_footer_label(int page_idx, bool bracketed)
+{
+    if(!lbl_footer_indicator) return;
+    if(bracketed) {
+        switch(page_idx) {
+            case 0: lv_label_set_text(lbl_footer_indicator, "[ * - - - ]"); break;
+            case 1: lv_label_set_text(lbl_footer_indicator, "[ - * - - ]"); break;
+            case 2: lv_label_set_text(lbl_footer_indicator, "[ - - * - ]"); break;
+            case 3: lv_label_set_text(lbl_footer_indicator, "[ - - - * ]"); break;
+        }
+    } else {
+        switch(page_idx) {
+            case 0: lv_label_set_text(lbl_footer_indicator, "* - - -"); break;
+            case 1: lv_label_set_text(lbl_footer_indicator, "- * - -"); break;
+            case 2: lv_label_set_text(lbl_footer_indicator, "- - * -"); break;
+            case 3: lv_label_set_text(lbl_footer_indicator, "- - - *"); break;
+        }
+    }
+}
+
 static void footer_menu_focus_cb(lv_event_t * e)
 {
     lv_obj_t * btn = lv_event_get_target(e);
@@ -308,27 +330,28 @@ static void footer_menu_focus_cb(lv_event_t * e)
     }
 
     if(code == LV_EVENT_FOCUSED) {
-        lv_obj_set_style_bg_color(btn, COLOR_HUD_BLUE, 0);
-        lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
+        if(footer_menu_selected) {
+            /* Restore gold selection state after page switch re-focus */
+            lv_obj_add_state(btn, LV_STATE_USER_1);
+        } else {
+            lv_obj_set_style_bg_color(btn, COLOR_HUD_BLUE, 0);
+            lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
+        }
         if(lbl_footer_indicator) {
             lv_obj_set_style_text_color(lbl_footer_indicator, lv_color_white(), 0);
-            switch(current_page) {
-                case 0: lv_label_set_text(lbl_footer_indicator, "* - - -"); break;
-                case 1: lv_label_set_text(lbl_footer_indicator, "- * - -"); break;
-                case 2: lv_label_set_text(lbl_footer_indicator, "- - * -"); break;
-                case 3: lv_label_set_text(lbl_footer_indicator, "- - - *"); break;
-            }
         }
     }
     else if(code == LV_EVENT_DEFOCUSED) {
-        lv_obj_set_style_bg_opa(btn, LV_OPA_TRANSP, 0);
-        if(lbl_footer_indicator) {
-            lv_obj_set_style_text_color(lbl_footer_indicator, COLOR_CYAN, 0);
-            switch(current_page) {
-                case 0: lv_label_set_text(lbl_footer_indicator, "[ * - - - ]"); break;
-                case 1: lv_label_set_text(lbl_footer_indicator, "[ - * - - ]"); break;
-                case 2: lv_label_set_text(lbl_footer_indicator, "[ - - * - ]"); break;
-                case 3: lv_label_set_text(lbl_footer_indicator, "[ - - - * ]"); break;
+        lv_obj_remove_state(btn, LV_STATE_USER_1);
+        if(!switching_page) {
+            footer_menu_selected = false;
+            lv_group_t * g = lv_group_get_default();
+            if(g) lv_group_set_editing(g, false);
+        }
+        if(!footer_menu_selected) {
+            lv_obj_set_style_bg_opa(btn, LV_OPA_TRANSP, 0);
+            if(lbl_footer_indicator) {
+                lv_obj_set_style_text_color(lbl_footer_indicator, COLOR_CYAN, 0);
             }
         }
     }
@@ -572,6 +595,14 @@ static void create_global_header_footer(void)
     lv_obj_set_style_outline_width(btn_footer_menu, 0, 0);
     lv_obj_set_style_pad_all(btn_footer_menu, 0, 0);
     lv_obj_set_style_bg_opa(btn_footer_menu, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(btn_footer_menu, 0, LV_STATE_FOCUSED);
+    lv_obj_set_style_border_width(btn_footer_menu, 0, LV_STATE_FOCUS_KEY);
+    lv_obj_set_style_border_width(btn_footer_menu, 0, LV_STATE_FOCUSED | LV_STATE_FOCUS_KEY);
+    lv_obj_set_style_outline_width(btn_footer_menu, 0, LV_STATE_FOCUSED);
+    lv_obj_set_style_outline_width(btn_footer_menu, 0, LV_STATE_FOCUS_KEY);
+    lv_obj_set_style_outline_width(btn_footer_menu, 0, LV_STATE_FOCUSED | LV_STATE_FOCUS_KEY);
+    lv_obj_add_style(btn_footer_menu, &style_btn_editing, LV_STATE_USER_1);
+    lv_obj_add_style(btn_footer_menu, &style_btn_editing, LV_STATE_USER_1 | LV_STATE_FOCUS_KEY);
 
     lv_obj_add_event_cb(btn_footer_menu, widget_click_handler, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(btn_footer_menu, widget_key_handler, LV_EVENT_KEY, NULL);
@@ -826,6 +857,8 @@ static void switch_page(int page_idx)
 {
     if(page_idx < 0 || page_idx >= 4) return;
 
+    switching_page = true;
+
     /* Detect if the footer menu button is currently focused to preserve focus */
     bool keep_footer_focused = false;
     lv_group_t * g_check = lv_group_get_default();
@@ -847,23 +880,13 @@ static void switch_page(int page_idx)
         lv_obj_remove_flag(page_containers[page_idx], LV_OBJ_FLAG_HIDDEN);
     }
 
-    /* Update standard ASCII page indicators (removes box symbols) */
+    /* Update standard ASCII page indicators */
     if(lbl_footer_indicator) {
         bool focused = (btn_footer_menu && lv_obj_has_state(btn_footer_menu, LV_STATE_FOCUSED));
-        if(focused) {
-            switch(page_idx) {
-                case 0: lv_label_set_text(lbl_footer_indicator, "* - - -"); break;
-                case 1: lv_label_set_text(lbl_footer_indicator, "- * - -"); break;
-                case 2: lv_label_set_text(lbl_footer_indicator, "- - * -"); break;
-                case 3: lv_label_set_text(lbl_footer_indicator, "- - - *"); break;
-            }
+        if(focused && footer_menu_selected) {
+            update_footer_label(page_idx, false);
         } else {
-            switch(page_idx) {
-                case 0: lv_label_set_text(lbl_footer_indicator, "[ * - - - ]"); break;
-                case 1: lv_label_set_text(lbl_footer_indicator, "[ - * - - ]"); break;
-                case 2: lv_label_set_text(lbl_footer_indicator, "[ - - * - ]"); break;
-                case 3: lv_label_set_text(lbl_footer_indicator, "[ - - - * ]"); break;
-            }
+            update_footer_label(page_idx, true);
         }
     }
 
@@ -932,6 +955,7 @@ static void switch_page(int page_idx)
     }
 
     current_page = page_idx;
+    switching_page = false;
 }
 
 static void widget_click_handler(lv_event_t * e)
@@ -1009,8 +1033,13 @@ static void widget_click_handler(lv_event_t * e)
         }
     }
     else if(obj == btn_footer_menu) {
-        int next_page = (current_page + 1) % 4;
-        switch_page(next_page);
+        lv_group_t * g = lv_group_get_default();
+        if(!footer_menu_selected && (!g || !lv_group_get_editing(g))) {
+            footer_menu_selected = true;
+            lv_obj_add_state(btn_footer_menu, LV_STATE_USER_1);
+            if(g) lv_group_set_editing(g, true);
+            update_footer_label(current_page, false);
+        }
     }
 }
 
@@ -1027,6 +1056,27 @@ static void widget_key_handler(lv_event_t * e)
     }
     if(discharge_active && obj == btn_p3_toggle) {
         if(key != LV_KEY_ENTER) return;
+    }
+
+    /* Footer menu: LEFT/RIGHT always flip pages, ENTER/ESC exit selection (works in both edit and nav mode) */
+    if(obj == btn_footer_menu && footer_menu_selected) {
+        if(key == LV_KEY_LEFT) {
+            switch_page((current_page - 1 + 4) % 4);
+            lv_group_focus_obj(btn_footer_menu);
+            update_footer_label(current_page, false);
+            return;
+        } else if(key == LV_KEY_RIGHT) {
+            switch_page((current_page + 1) % 4);
+            lv_group_focus_obj(btn_footer_menu);
+            update_footer_label(current_page, false);
+            return;
+        } else if(key == LV_KEY_ESC || key == LV_KEY_ENTER) {
+            footer_menu_selected = false;
+            lv_obj_remove_state(btn_footer_menu, LV_STATE_USER_1);
+            lv_group_set_editing(g, false);
+            update_footer_label(current_page, true);
+            return;
+        }
     }
 
     if(lv_group_get_editing(g)) {
@@ -1103,18 +1153,20 @@ static void widget_key_handler(lv_event_t * e)
             if(bottom_bar) lv_obj_remove_flag(bottom_bar, LV_OBJ_FLAG_HIDDEN);
         }
     } else {
-        if(obj == btn_footer_menu && key == LV_KEY_ENTER) {
-            int next_page = (current_page + 1) % 4;
-            switch_page(next_page);
+        if(obj == btn_footer_menu && key == LV_KEY_ENTER && !footer_menu_selected) {
+            footer_menu_selected = true;
+            lv_obj_add_state(btn_footer_menu, LV_STATE_USER_1);
+            lv_group_set_editing(g, true);
+            update_footer_label(current_page, false);
             return;
         }
 
-        /* 
+        /*
          * Navigation Mode Focus Switching:
          * Bidirectional continuous rotation across all pages and focused widgets.
          * If we rotate past the first/last widget of a page, we transition to the previous/next page naturally.
          */
-        if(key == ' ' || key == LV_KEY_ESC) {
+        if((key == ' ' || key == LV_KEY_ESC) && !footer_menu_selected) {
             int next_page = (current_page + 1) % 4;
             switch_page(next_page);
         }
@@ -1191,7 +1243,7 @@ static void global_key_handler(lv_event_t * e)
      * Switch page when space character ' ' is pressed or ESC key is pressed.
      * Ensure we are NOT in editing mode when switching pages, so rotation inputs work for page focusing.
      */
-    if((key == ' ' || key == LV_KEY_ESC) && (!g || !lv_group_get_editing(g))) {
+    if((key == ' ' || key == LV_KEY_ESC) && (!g || !lv_group_get_editing(g)) && !footer_menu_selected) {
         int next_page = (current_page + 1) % 4;
         switch_page(next_page);
     }

@@ -848,8 +848,11 @@ static void create_page_system(void)
     lv_obj_set_pos(lbl_p4_terminal, 98, 8);
     lv_obj_set_size(lbl_p4_terminal, 136, 80);
     lv_label_set_long_mode(lbl_p4_terminal, LV_LABEL_LONG_CLIP);
+    lv_obj_set_style_radius(lbl_p4_terminal, 4, 0);
+    lv_obj_set_style_bg_color(lbl_p4_terminal, COLOR_BG, 0);
+    lv_obj_set_style_bg_opa(lbl_p4_terminal, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(lbl_p4_terminal, 1, 0);
-    lv_obj_set_style_border_color(lbl_p4_terminal, COLOR_GRAY, 0);
+    lv_obj_set_style_border_color(lbl_p4_terminal, lv_color_black(), 0);
     lv_obj_set_style_pad_all(lbl_p4_terminal, 3, 0);
 }
 

@@ -75,6 +75,9 @@ set(MAIN_SOURCES
     src/bms_ui.cpp
     src/sim/bms_sim.c
     src/view/bms_ui_view.c
+    src/view/bms_ui_styles.c
+    src/view/bms_ui_pages.c
+    src/view/bms_ui_refresh.c
     src/controller/bms_ui_ctrl.c
 )
 set(MAIN_LIBS lvgl lvgl::examples lvgl::demos lvgl::thorvg ${SDL2_LIBRARIES})

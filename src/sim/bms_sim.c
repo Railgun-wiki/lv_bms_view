@@ -131,7 +131,9 @@ void bms_sim_tick_1000ms(void)
         switch(log_cycle % 4) {
             case 0: snprintf(log_entry, 64, "RX -> SOC: %03d%%", s_state.predicted_soc); break;
             case 1: snprintf(log_entry, 64, "RX -> PACKETS: %04d", s_state.rx_packet_count); break;
-            case 2: snprintf(log_entry, 64, "RX -> CELL_U: %.2fV", s_u); break;
+            case 2: snprintf(log_entry, 64, "RX -> CELL_U: %ld.%02ldV",
+                             (long)(s_state.voltage_mV / 1000),
+                             (long)((s_state.voltage_mV < 0 ? -s_state.voltage_mV : s_state.voltage_mV) % 1000 / 10)); break;
             case 3: snprintf(log_entry, 64, "LINK -> SYN %s", s_state.baud_rate_idx ? "115K" : "9K6"); break;
         }
     }

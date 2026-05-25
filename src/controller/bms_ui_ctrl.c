@@ -4,6 +4,13 @@
 
 static bms_data_bridge_t s_bridge;
 
+static void fmt_milli(char* buf, int32_t val)
+{
+    int32_t whole = val / 1000;
+    int32_t frac = (val < 0 ? -val : val) % 1000 / 10;
+    snprintf(buf, 12, "%ld.%02ld", (long)whole, (long)frac);
+}
+
 static void on_click(lv_event_t* e);
 static void on_key(lv_event_t* e);
 static void on_global_key(lv_event_t* e);
@@ -147,20 +154,23 @@ static void on_key(lv_event_t* e)
         if(key == LV_KEY_UP || key == LV_KEY_RIGHT) {
             if(obj == bms_ui_view_btn_uset()) {
                 s_bridge.set_charge_u_mV(st->charge_u_set_mV + 10);
-                char buf[20];
-                snprintf(buf, sizeof(buf), "U: %.2fV", s_bridge.get_state()->charge_u_set_mV / 1000.0f);
+                char buf[20], tmp[12];
+                fmt_milli(tmp, s_bridge.get_state()->charge_u_set_mV);
+                snprintf(buf, sizeof(buf), "U: %sV", tmp);
                 lv_label_set_text(bms_ui_view_get_button_label(obj), buf);
             }
             else if(obj == bms_ui_view_btn_iset()) {
                 s_bridge.set_charge_i_mA(st->charge_i_set_mA + 50);
-                char buf[20];
-                snprintf(buf, sizeof(buf), "I: %.2fA", s_bridge.get_state()->charge_i_set_mA / 1000.0f);
+                char buf[20], tmp[12];
+                fmt_milli(tmp, s_bridge.get_state()->charge_i_set_mA);
+                snprintf(buf, sizeof(buf), "I: %sA", tmp);
                 lv_label_set_text(bms_ui_view_get_button_label(obj), buf);
             }
             else if(obj == bms_ui_view_btn_idis()) {
                 s_bridge.set_discharge_i_mA(st->discharge_i_set_mA + 100);
-                char buf[20];
-                snprintf(buf, sizeof(buf), "I: %.2fA", s_bridge.get_state()->discharge_i_set_mA / 1000.0f);
+                char buf[20], tmp[12];
+                fmt_milli(tmp, s_bridge.get_state()->discharge_i_set_mA);
+                snprintf(buf, sizeof(buf), "I: %sA", tmp);
                 lv_label_set_text(bms_ui_view_get_button_label(obj), buf);
             }
             else if(obj == bms_ui_view_btn_baud()) {
@@ -177,20 +187,23 @@ static void on_key(lv_event_t* e)
         else if(key == LV_KEY_DOWN || key == LV_KEY_LEFT) {
             if(obj == bms_ui_view_btn_uset()) {
                 s_bridge.set_charge_u_mV(st->charge_u_set_mV - 10);
-                char buf[20];
-                snprintf(buf, sizeof(buf), "U: %.2fV", s_bridge.get_state()->charge_u_set_mV / 1000.0f);
+                char buf[20], tmp[12];
+                fmt_milli(tmp, s_bridge.get_state()->charge_u_set_mV);
+                snprintf(buf, sizeof(buf), "U: %sV", tmp);
                 lv_label_set_text(bms_ui_view_get_button_label(obj), buf);
             }
             else if(obj == bms_ui_view_btn_iset()) {
                 s_bridge.set_charge_i_mA(st->charge_i_set_mA - 50);
-                char buf[20];
-                snprintf(buf, sizeof(buf), "I: %.2fA", s_bridge.get_state()->charge_i_set_mA / 1000.0f);
+                char buf[20], tmp[12];
+                fmt_milli(tmp, s_bridge.get_state()->charge_i_set_mA);
+                snprintf(buf, sizeof(buf), "I: %sA", tmp);
                 lv_label_set_text(bms_ui_view_get_button_label(obj), buf);
             }
             else if(obj == bms_ui_view_btn_idis()) {
                 s_bridge.set_discharge_i_mA(st->discharge_i_set_mA - 100);
-                char buf[20];
-                snprintf(buf, sizeof(buf), "I: %.2fA", s_bridge.get_state()->discharge_i_set_mA / 1000.0f);
+                char buf[20], tmp[12];
+                fmt_milli(tmp, s_bridge.get_state()->discharge_i_set_mA);
+                snprintf(buf, sizeof(buf), "I: %sA", tmp);
                 lv_label_set_text(bms_ui_view_get_button_label(obj), buf);
             }
             else if(obj == bms_ui_view_btn_baud()) {

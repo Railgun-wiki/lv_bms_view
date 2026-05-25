@@ -19,6 +19,26 @@
 #define COLOR_DARK_BLUE_3 lv_color_make(0x00, 0x1A, 0x2E)
 
 /**********************
+ *  INTEGER FORMATTING
+ **********************/
+
+/* mV/mA → "x.xx" (e.g. 4120 → "4.12", -250 → "-0.25") */
+static void fmt_milli(char* buf, int32_t val)
+{
+    int32_t whole = val / 1000;
+    int32_t frac = (val < 0 ? -val : val) % 1000 / 10;
+    snprintf(buf, 12, "%ld.%02ld", (long)whole, (long)frac);
+}
+
+/* x10 → "x.x" (e.g. 250 → "25.0") */
+static void fmt_x10(char* buf, int32_t val)
+{
+    int32_t whole = val / 10;
+    int32_t frac = (val < 0 ? -val : val) % 10;
+    snprintf(buf, 8, "%ld.%ld", (long)whole, (long)frac);
+}
+
+/**********************
  *  STATIC VARIABLES
  **********************/
 static lv_style_t s_styleBg, s_styleTextGold, s_styleTextCyan, s_styleTextGray;
@@ -727,15 +747,18 @@ void bms_ui_view_refresh(const bms_state_t* s)
 
     if(s_currentPage == 0) {
         char buf[24];
-        float u = s->voltage_mV / 1000.0f;
-        float i = s->current_mA / 1000.0f;
-        float t = s->temperature_x10 / 10.0f;
+        char tmp[12];
 
-        snprintf(buf, sizeof(buf), "U: %.3f V", u);
+        fmt_milli(tmp, s->voltage_mV);
+        snprintf(buf, sizeof(buf), "U: %s V", tmp);
         lv_label_set_text(s_lblU, buf);
-        snprintf(buf, sizeof(buf), "I: %+.2f A", i);
+
+        fmt_milli(tmp, s->current_mA);
+        snprintf(buf, sizeof(buf), "I: %s A", tmp);
         lv_label_set_text(s_lblI, buf);
-        snprintf(buf, sizeof(buf), "T: %.1f C", t);
+
+        fmt_x10(tmp, s->temperature_x10);
+        snprintf(buf, sizeof(buf), "T: %s C", tmp);
         lv_label_set_text(s_lblT, buf);
 
         if(s->charge_active) {
@@ -754,10 +777,14 @@ void bms_ui_view_refresh(const bms_state_t* s)
     }
 
     if(s_currentPage == 1) {
-        char buf[36];
-        float u = s->voltage_mV / 1000.0f;
-        float i = s->charge_active ? (s->current_mA / 1000.0f) : 0.0f;
-        snprintf(buf, sizeof(buf), "U:%.2fV I:%.2fA P:%.2fW", u, i, u * i);
+        char buf[40];
+        char tu[12], ti[12], tp[12];
+        int32_t mA = s->charge_active ? s->current_mA : 0;
+        int32_t power_mW = (s->voltage_mV / 100) * (mA / 100) / 100;
+        fmt_milli(tu, s->voltage_mV);
+        fmt_milli(ti, mA);
+        fmt_milli(tp, power_mW);
+        snprintf(buf, sizeof(buf), "U:%sV I:%sA P:%sW", tu, ti, tp);
         lv_label_set_text(s_lblP2Readout, buf);
         lv_chart_set_next_value(s_chartP2, s_p2SerU, s->voltage_mV);
         lv_chart_set_next_value(s_chartP2, s_p2SerI, s->charge_active ? s->current_mA : 0);
@@ -770,9 +797,13 @@ void bms_ui_view_refresh(const bms_state_t* s)
             lv_label_set_text(s_lblP3Readout, buf);
             lv_obj_set_style_text_color(s_lblP3Readout, COLOR_RED, 0);
         } else {
-            float u = s->voltage_mV / 1000.0f;
-            float i = s->discharge_active ? (-s->current_mA / 1000.0f) : 0.0f;
-            snprintf(buf, sizeof(buf), "U:%.2fV I:%.2fA P:%.2fW", u, i, u * i);
+            char tu[12], ti[12], tp[12];
+            int32_t mA = s->discharge_active ? (-s->current_mA) : 0;
+            int32_t power_mW = (s->voltage_mV / 100) * (mA / 100) / 100;
+            fmt_milli(tu, s->voltage_mV);
+            fmt_milli(ti, mA);
+            fmt_milli(tp, power_mW);
+            snprintf(buf, sizeof(buf), "U:%sV I:%sA P:%sW", tu, ti, tp);
             lv_label_set_text(s_lblP3Readout, buf);
             lv_obj_set_style_text_color(s_lblP3Readout, COLOR_GRAY, 0);
         }

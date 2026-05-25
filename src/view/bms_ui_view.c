@@ -139,30 +139,41 @@ void bms_ui_view_switch_page(int page_idx)
 
         lv_group_remove_all_objs(g);
 
+        lv_obj_t* focus_target = NULL;
         switch(page_idx) {
             case 0:
                 lv_group_add_obj(g, s_w.btnFooter);
-                lv_group_focus_obj(s_w.btnFooter);
+                focus_target = s_w.btnFooter;
                 break;
             case 1:
                 lv_group_add_obj(g, s_w.btnUset);
                 lv_group_add_obj(g, s_w.btnIset);
                 lv_group_add_obj(g, s_w.btnChgToggle);
                 lv_group_add_obj(g, s_w.btnFooter);
-                lv_group_focus_obj(keep_footer ? s_w.btnFooter : s_w.btnUset);
+                focus_target = keep_footer ? s_w.btnFooter : s_w.btnUset;
                 break;
             case 2:
                 lv_group_add_obj(g, s_w.btnIdis);
                 lv_group_add_obj(g, s_w.btnDscToggle);
                 lv_group_add_obj(g, s_w.btnFooter);
-                lv_group_focus_obj(keep_footer ? s_w.btnFooter : s_w.btnIdis);
+                focus_target = keep_footer ? s_w.btnFooter : s_w.btnIdis;
                 break;
             case 3:
                 lv_group_add_obj(g, s_w.btnBaud);
                 lv_group_add_obj(g, s_w.btnPort);
                 lv_group_add_obj(g, s_w.btnFooter);
-                lv_group_focus_obj(keep_footer ? s_w.btnFooter : s_w.btnBaud);
+                focus_target = keep_footer ? s_w.btnFooter : s_w.btnBaud;
                 break;
+        }
+        if(focus_target) {
+            lv_group_focus_obj(focus_target);
+            /* Apply focus styling immediately (lv_group_focus_obj alone
+               doesn't trigger LV_EVENT_FOCUSED until an input event) */
+            if(focus_target == s_w.btnFooter) {
+                lv_obj_set_style_bg_color(s_w.btnFooter, lv_color_make(0x00, 0x66, 0xBB), 0);
+                lv_obj_set_style_bg_opa(s_w.btnFooter, LV_OPA_COVER, 0);
+                if(s_w.lblFooter) lv_obj_set_style_text_color(s_w.lblFooter, lv_color_white(), 0);
+            }
         }
     }
 

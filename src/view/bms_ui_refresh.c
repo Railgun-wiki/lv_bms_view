@@ -96,7 +96,7 @@ void bms_ui_view_update_soc_impl(bms_ui_widgets_t* w, uint8_t soc)
     char buf[16];
     snprintf(buf, sizeof(buf), "%d%%", soc);
     if(w->lblSoc) { lv_label_set_text(w->lblSoc, buf); lv_obj_center(w->lblSoc); }
-    if(w->barSoc) lv_bar_set_value(w->barSoc, soc, LV_ANIM_OFF);
+    if(w->barSocInd) lv_obj_set_width(w->barSocInd, (int32_t)soc * 58 / 100);
 }
 
 void bms_ui_view_refresh_impl(bms_ui_widgets_t* w, const bms_state_t* s, int currentPage)

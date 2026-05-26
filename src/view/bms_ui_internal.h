@@ -13,6 +13,7 @@ typedef struct {
     lv_obj_t* lblMode;
     lv_obj_t* lblSoc;
     lv_obj_t* barSoc;
+    lv_obj_t* barSocInd;
     lv_obj_t* lblLink;
 
     /* Footer */

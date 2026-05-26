@@ -190,7 +190,7 @@ void bms_ui_view_update_soc(uint8_t soc)
     char buf[16];
     snprintf(buf, sizeof(buf), "%d%%", soc);
     if(s_w.lblSoc) { lv_label_set_text(s_w.lblSoc, buf); lv_obj_center(s_w.lblSoc); }
-    if(s_w.barSoc) lv_bar_set_value(s_w.barSoc, soc, LV_ANIM_OFF);
+    if(s_w.barSocInd) lv_obj_set_width(s_w.barSocInd, (int32_t)soc * 58 / 100);
     if(s_w.lblSocBig && s_currentPage == 0) lv_label_set_text(s_w.lblSocBig, buf);
 }
 

@@ -238,7 +238,7 @@ static void create_header_footer(bms_ui_widgets_t* w)
     lv_label_set_text(w->lblMode, "[ SoC LNK ]");
     lv_obj_set_pos(w->lblMode, 8, 3);
 
-    w->barSoc = lv_bar_create(header);
+    w->barSoc = lv_obj_create(header);
     lv_obj_set_size(w->barSoc, 60, 14);
     lv_obj_set_pos(w->barSoc, 115, 2);
     lv_obj_set_style_bg_color(w->barSoc, COLOR_BG, 0);
@@ -246,11 +246,15 @@ static void create_header_footer(bms_ui_widgets_t* w)
     lv_obj_set_style_border_width(w->barSoc, 1, 0);
     lv_obj_set_style_border_color(w->barSoc, COLOR_CYAN, 0);
     lv_obj_set_style_pad_all(w->barSoc, 0, 0);
-    lv_obj_set_style_bg_color(w->barSoc, COLOR_CYAN, LV_PART_INDICATOR);
-    lv_obj_set_style_bg_opa(w->barSoc, LV_OPA_50, LV_PART_INDICATOR);
     lv_obj_set_style_radius(w->barSoc, 0, 0);
-    lv_obj_set_style_radius(w->barSoc, 0, LV_PART_INDICATOR);
-    lv_bar_set_value(w->barSoc, 85, LV_ANIM_OFF);
+    lv_obj_remove_flag(w->barSoc, LV_OBJ_FLAG_SCROLLABLE);
+
+    w->barSocInd = lv_obj_create(w->barSoc);
+    lv_obj_set_size(w->barSocInd, 50, 12);
+    lv_obj_set_pos(w->barSocInd, 0, 0);
+    bms_ui_strip_decorations(w->barSocInd);
+    lv_obj_set_style_bg_color(w->barSocInd, COLOR_CYAN, 0);
+    lv_obj_set_style_bg_opa(w->barSocInd, LV_OPA_50, 0);
 
     w->lblSoc = lv_label_create(w->barSoc);
     lv_obj_add_style(w->lblSoc, bms_ui_style_text_cyan(), 0);

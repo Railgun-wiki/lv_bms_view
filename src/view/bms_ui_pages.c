@@ -77,29 +77,57 @@ static lv_obj_t* create_hud_button(lv_obj_t* parent, int x, int y, const char* t
     return btn;
 }
 
-static lv_obj_t* create_chart(lv_obj_t* parent, lv_chart_series_t** ser_u, lv_chart_series_t** ser_i)
+#define CHART_PTS  20
+#define CHART_INNER_W 134  /* 136 - 2px border */
+#define CHART_INNER_H 54   /* 56 - 2px border */
+
+lv_point_precise_t s_p2_pts_u[CHART_PTS];
+lv_point_precise_t s_p2_pts_i[CHART_PTS];
+lv_point_precise_t s_p3_pts_u[CHART_PTS];
+lv_point_precise_t s_p3_pts_i[CHART_PTS];
+
+static void init_chart_points(lv_point_precise_t* pts, int count, int chart_w)
 {
-    lv_obj_t* chart = lv_chart_create(parent);
+    for(int i = 0; i < count; i++) {
+        pts[i].x = (lv_value_precise_t)(i * (chart_w - 1) / (count - 1));
+        pts[i].y = 0;
+    }
+}
+
+static lv_obj_t* create_chart(lv_obj_t* parent,
+                               lv_obj_t** line_u, lv_obj_t** line_i,
+                               lv_point_precise_t* pts_u, lv_point_precise_t* pts_i)
+{
+    lv_obj_t* chart = lv_obj_create(parent);
     lv_obj_set_size(chart, 136, 56);
     lv_obj_set_pos(chart, 98, 8);
-    lv_chart_set_type(chart, LV_CHART_TYPE_LINE);
-    lv_chart_set_point_count(chart, 20);
-    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, 0, 5000);
     lv_obj_set_style_bg_color(chart, COLOR_BG, 0);
+    lv_obj_set_style_bg_opa(chart, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(chart, COLOR_DARK_GRAY, 0);
     lv_obj_set_style_border_width(chart, 1, 0);
     lv_obj_set_style_pad_all(chart, 0, 0);
-    lv_obj_set_style_line_color(chart, COLOR_DARK_GRAY, LV_PART_ITEMS);
-    lv_obj_set_style_width(chart, 0, LV_PART_INDICATOR);
-    lv_obj_set_style_height(chart, 0, LV_PART_INDICATOR);
+    lv_obj_set_style_radius(chart, 0, 0);
+    lv_obj_remove_flag(chart, LV_OBJ_FLAG_SCROLLABLE);
 
-    *ser_u = lv_chart_add_series(chart, COLOR_CYAN, LV_CHART_AXIS_PRIMARY_Y);
-    *ser_i = lv_chart_add_series(chart, COLOR_GOLD, LV_CHART_AXIS_PRIMARY_Y);
+    init_chart_points(pts_u, CHART_PTS, CHART_INNER_W);
+    init_chart_points(pts_i, CHART_PTS, CHART_INNER_W);
 
-    for(int i = 0; i < 20; i++) {
-        lv_chart_set_next_value(chart, *ser_u, 0);
-        lv_chart_set_next_value(chart, *ser_i, 0);
-    }
+    *line_u = lv_line_create(chart);
+    lv_obj_set_size(*line_u, CHART_INNER_W, CHART_INNER_H);
+    lv_obj_set_pos(*line_u, 0, 0);
+    lv_line_set_points_mutable(*line_u, pts_u, CHART_PTS);
+    lv_line_set_y_invert(*line_u, true);
+    lv_obj_set_style_line_color(*line_u, COLOR_CYAN, 0);
+    lv_obj_set_style_line_width(*line_u, 1, 0);
+
+    *line_i = lv_line_create(chart);
+    lv_obj_set_size(*line_i, CHART_INNER_W, CHART_INNER_H);
+    lv_obj_set_pos(*line_i, 0, 0);
+    lv_line_set_points_mutable(*line_i, pts_i, CHART_PTS);
+    lv_line_set_y_invert(*line_i, true);
+    lv_obj_set_style_line_color(*line_i, COLOR_GOLD, 0);
+    lv_obj_set_style_line_width(*line_i, 1, 0);
+
     return chart;
 }
 
@@ -174,7 +202,7 @@ static void create_page_cccv(bms_ui_widgets_t* w)
     lv_label_set_text(lbl, "CHG: OFF");
     lv_obj_center(lbl);
 
-    w->chartP2 = create_chart(p, &w->p2SerU, &w->p2SerI);
+    w->chartP2 = create_chart(p, &w->lineP2U, &w->lineP2I, s_p2_pts_u, s_p2_pts_i);
     w->lblP2Readout = create_readout_label(p);
 }
 
@@ -192,7 +220,7 @@ static void create_page_discharge(bms_ui_widgets_t* w)
     lv_label_set_text(lbl, "DSC: OFF");
     lv_obj_center(lbl);
 
-    w->chartP3 = create_chart(p, &w->p3SerU, &w->p3SerI);
+    w->chartP3 = create_chart(p, &w->lineP3U, &w->lineP3I, s_p3_pts_u, s_p3_pts_i);
     w->lblP3Readout = create_readout_label(p);
 }
 

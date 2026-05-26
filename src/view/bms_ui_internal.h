@@ -29,13 +29,13 @@ typedef struct {
     /* Page 1: CCCV */
     lv_obj_t* btnUset, *btnIset, *btnChgToggle;
     lv_obj_t* chartP2;
-    lv_chart_series_t *p2SerU, *p2SerI;
+    lv_obj_t* lineP2U, *lineP2I;
     lv_obj_t* lblP2Readout;
 
     /* Page 2: Discharge */
     lv_obj_t* btnIdis, *btnDscToggle;
     lv_obj_t* chartP3;
-    lv_chart_series_t *p3SerU, *p3SerI;
+    lv_obj_t* lineP3U, *lineP3I;
     lv_obj_t* lblP3Readout;
 
     /* Page 3: System */

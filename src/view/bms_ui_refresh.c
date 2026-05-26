@@ -99,6 +99,27 @@ void bms_ui_view_update_soc_impl(bms_ui_widgets_t* w, uint8_t soc)
     if(w->barSocInd) lv_obj_set_width(w->barSocInd, (int32_t)soc * 58 / 100);
 }
 
+#define CHART_H    54   /* inner height: 56 - 2px border */
+#define CHART_MAX  5000  /* Y range max */
+#define CHART_PTS  20
+
+extern lv_point_precise_t s_p2_pts_u[CHART_PTS];
+extern lv_point_precise_t s_p2_pts_i[CHART_PTS];
+extern lv_point_precise_t s_p3_pts_u[CHART_PTS];
+extern lv_point_precise_t s_p3_pts_i[CHART_PTS];
+
+static void update_chart_line(lv_obj_t* line, lv_point_precise_t* pts, int32_t value)
+{
+    for(int i = 0; i < CHART_PTS - 1; i++) {
+        pts[i].y = pts[i + 1].y;
+    }
+    int32_t y = value * CHART_H / CHART_MAX;
+    if(y < 0) y = 0;
+    if(y > CHART_H) y = CHART_H;
+    pts[CHART_PTS - 1].y = (lv_value_precise_t)y;
+    lv_line_set_points_mutable(line, pts, CHART_PTS);
+}
+
 void bms_ui_view_refresh_impl(bms_ui_widgets_t* w, const bms_state_t* s, int currentPage)
 {
     if(!s || !w) return;
@@ -138,8 +159,8 @@ void bms_ui_view_refresh_impl(bms_ui_widgets_t* w, const bms_state_t* s, int cur
         int32_t mA = s->charge_active ? s->current_mA : 0;
         format_readout(buf, sizeof(buf), s->voltage_mV, mA);
         lv_label_set_text(w->lblP2Readout, buf);
-        lv_chart_set_next_value(w->chartP2, w->p2SerU, s->voltage_mV);
-        lv_chart_set_next_value(w->chartP2, w->p2SerI, s->charge_active ? s->current_mA : 0);
+        update_chart_line(w->lineP2U, s_p2_pts_u, s->voltage_mV);
+        update_chart_line(w->lineP2I, s_p2_pts_i, s->charge_active ? s->current_mA : 0);
     }
 
     if(currentPage == 2) {
@@ -154,8 +175,8 @@ void bms_ui_view_refresh_impl(bms_ui_widgets_t* w, const bms_state_t* s, int cur
             lv_label_set_text(w->lblP3Readout, buf);
             lv_obj_set_style_text_color(w->lblP3Readout, COLOR_GRAY, 0);
         }
-        lv_chart_set_next_value(w->chartP3, w->p3SerU, s->voltage_mV);
-        lv_chart_set_next_value(w->chartP3, w->p3SerI, s->discharge_active ? (-s->current_mA / 2) : 0);
+        update_chart_line(w->lineP3U, s_p3_pts_u, s->voltage_mV);
+        update_chart_line(w->lineP3I, s_p3_pts_i, s->discharge_active ? (-s->current_mA / 2) : 0);
     }
 
     if(currentPage == 3) {

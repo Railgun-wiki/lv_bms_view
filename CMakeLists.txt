@@ -9,6 +9,7 @@ set(LVGL_PRO_PROJECT_DIR
     CACHE PATH "Path to LVGL Pro Project folder")
 
 option(USE_FREERTOS "Enable FreeRTOS" OFF) # Turn this on to enable FreeRTOS
+option(BMS_SIM "Build with PC simulator backend (OFF for STM32 hardware)" ON)
 
 if(USE_FREERTOS)
     message(STATUS "FreeRTOS is enabled")
@@ -73,7 +74,6 @@ set(MAIN_SOURCES
     src/mouse_cursor_icon.c
     src/hal/hal.c
     src/bms_ui.cpp
-    src/sim/bms_sim.c
     src/view/bms_ui_view.c
     src/view/bms_ui_styles.c
     src/view/bms_ui_pages.c
@@ -82,6 +82,15 @@ set(MAIN_SOURCES
     fonts/montserrat_12_subset.c
     fonts/montserrat_28_subset.c
 )
+
+if(BMS_SIM)
+    message(STATUS "BMS backend: PC simulator")
+    add_definitions(-DBMS_SIM)
+    list(APPEND MAIN_SOURCES src/sim/bms_sim.c)
+else()
+    message(STATUS "BMS backend: STM32 hardware")
+    list(APPEND MAIN_SOURCES src/hw/bms_hw.c)
+endif()
 set(MAIN_LIBS lvgl ${SDL2_LIBRARIES})
 
 # Create the main executable, depending on the FreeRTOS option
@@ -158,6 +167,7 @@ target_compile_definitions(main PRIVATE LV_CONF_INCLUDE_SIMPLE)
 target_include_directories(main PRIVATE
     ${PROJECT_SOURCE_DIR}/src
     ${PROJECT_SOURCE_DIR}/src/sim
+    ${PROJECT_SOURCE_DIR}/src/hw
     ${PROJECT_SOURCE_DIR}/src/view
     ${PROJECT_SOURCE_DIR}/src/controller
 )

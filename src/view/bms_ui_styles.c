@@ -22,15 +22,15 @@ void bms_ui_styles_init(void)
 
     lv_style_init(&s_textGold);
     lv_style_set_text_color(&s_textGold, COLOR_GOLD);
-    lv_style_set_text_font(&s_textGold, &lv_font_montserrat_12);
+    lv_style_set_text_font(&s_textGold, &montserrat_12_subset);
 
     lv_style_init(&s_textCyan);
     lv_style_set_text_color(&s_textCyan, COLOR_CYAN);
-    lv_style_set_text_font(&s_textCyan, &lv_font_montserrat_12);
+    lv_style_set_text_font(&s_textCyan, &montserrat_12_subset);
 
     lv_style_init(&s_textGray);
     lv_style_set_text_color(&s_textGray, COLOR_GRAY);
-    lv_style_set_text_font(&s_textGray, &lv_font_montserrat_12);
+    lv_style_set_text_font(&s_textGray, &montserrat_12_subset);
 
     lv_style_init(&s_btnNormal);
     lv_style_set_bg_color(&s_btnNormal, COLOR_BG);
@@ -38,7 +38,7 @@ void bms_ui_styles_init(void)
     lv_style_set_border_width(&s_btnNormal, 1);
     lv_style_set_border_color(&s_btnNormal, COLOR_GRAY);
     lv_style_set_text_color(&s_btnNormal, lv_color_white());
-    lv_style_set_text_font(&s_btnNormal, &lv_font_montserrat_12);
+    lv_style_set_text_font(&s_btnNormal, &montserrat_12_subset);
     lv_style_set_pad_all(&s_btnNormal, 0);
     lv_style_set_radius(&s_btnNormal, 0);
 

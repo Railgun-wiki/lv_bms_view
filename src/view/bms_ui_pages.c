@@ -107,7 +107,7 @@ static lv_obj_t* create_readout_label(lv_obj_t* parent)
 {
     lv_obj_t* lbl = lv_label_create(parent);
     lv_obj_add_style(lbl, bms_ui_style_text_gray(), 0);
-    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_font(lbl, &montserrat_12_subset, 0);
     lv_label_set_text(lbl, "U: 0.00V  I: 0.00A");
     lv_obj_set_pos(lbl, 98, 68);
     return lbl;
@@ -122,7 +122,7 @@ static void create_page_soc(bms_ui_widgets_t* w)
     lv_obj_t* p = w->pages[0];
 
     w->lblSocBig = lv_label_create(p);
-    lv_obj_set_style_text_font(w->lblSocBig, &lv_font_montserrat_28, 0);
+    lv_obj_set_style_text_font(w->lblSocBig, &montserrat_28_subset, 0);
     lv_obj_set_style_text_color(w->lblSocBig, COLOR_GOLD, 0);
     lv_label_set_text(w->lblSocBig, "85%");
     lv_obj_set_pos(w->lblSocBig, 10, 10);
@@ -134,7 +134,7 @@ static void create_page_soc(bms_ui_widgets_t* w)
 
     lv_obj_t* desc = lv_label_create(p);
     lv_obj_add_style(desc, bms_ui_style_text_gray(), 0);
-    lv_obj_set_style_text_font(desc, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_font(desc, &montserrat_12_subset, 0);
     lv_label_set_text(desc, "CHIRAL EST. SOC");
     lv_obj_set_pos(desc, 10, 66);
 
@@ -205,7 +205,7 @@ static void create_page_system(bms_ui_widgets_t* w)
 
     w->lblTerminal = lv_label_create(p);
     lv_obj_add_style(w->lblTerminal, bms_ui_style_text_gold(), 0);
-    lv_obj_set_style_text_font(w->lblTerminal, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_font(w->lblTerminal, &montserrat_12_subset, 0);
     lv_obj_set_pos(w->lblTerminal, 98, 8);
     lv_obj_set_size(w->lblTerminal, 136, 80);
     lv_label_set_long_mode(w->lblTerminal, LV_LABEL_LONG_CLIP);

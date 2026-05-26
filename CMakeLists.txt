@@ -79,6 +79,8 @@ set(MAIN_SOURCES
     src/view/bms_ui_pages.c
     src/view/bms_ui_refresh.c
     src/controller/bms_ui_ctrl.c
+    fonts/montserrat_12_subset.c
+    fonts/montserrat_28_subset.c
 )
 set(MAIN_LIBS lvgl lvgl::examples lvgl::demos lvgl::thorvg ${SDL2_LIBRARIES})
 

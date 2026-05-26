@@ -386,4 +386,4 @@ LVGL 已内置以下 STM32 相关驱动，无需从头编写：
 ### Flash 占用
 - LVGL 库 + BMS UI + 字体 ≈ 200-400KB Flash（精简后）
 - STM32F407（1MB Flash）完全足够
-- STM32F103（64KB Flash）需要大幅精简，不推荐
+- STM32F103（64KB Flash）：Phase 1-3 优化已应用（配置精简 + 字体子集 + chart/bar/blend 源码修改），LVGL .o = 480.6 KB，App .o = 37.7 KB。经 `-Os` + `--gc-sections` + `nano.specs` 后预估 52-75 KB，仍需交叉编译验证

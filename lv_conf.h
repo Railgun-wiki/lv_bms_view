@@ -132,7 +132,11 @@
  *========================*/
 
 /** Align stride of all layers and images to this bytes */
-#define LV_DRAW_BUF_STRIDE_ALIGN                1
+#ifdef BMS_SIM
+    #define LV_DRAW_BUF_STRIDE_ALIGN                1
+#else
+    #define LV_DRAW_BUF_STRIDE_ALIGN                4   /* STM32F103 DMA word alignment */
+#endif
 
 /** Align start address of draw_buf addresses to this bytes*/
 #define LV_DRAW_BUF_ALIGN                       4
@@ -652,7 +656,11 @@
 
 /** Will be added where memory needs to be aligned (with -Os data might not be aligned to boundary by default).
  *  E.g. __attribute__((aligned(4)))*/
-#define LV_ATTRIBUTE_MEM_ALIGN
+#ifdef BMS_SIM
+    #define LV_ATTRIBUTE_MEM_ALIGN
+#else
+    #define LV_ATTRIBUTE_MEM_ALIGN    __attribute__((aligned(4)))  /* STM32F103 DMA alignment */
+#endif
 
 /** Attribute to mark large constant arrays, for example for font bitmaps */
 #define LV_ATTRIBUTE_LARGE_CONST
@@ -661,7 +669,11 @@
 #define LV_ATTRIBUTE_LARGE_RAM_ARRAY
 
 /** Place performance critical functions into a faster memory (e.g RAM) */
-#define LV_ATTRIBUTE_FAST_MEM
+#ifdef BMS_SIM
+    #define LV_ATTRIBUTE_FAST_MEM
+#else
+    #define LV_ATTRIBUTE_FAST_MEM   /* STM32F103: no fast RAM region available */
+#endif
 
 /** Export integer constant to binding. This macro is used with constants in the form of LV_<CONST> that
  *  should also appear on LVGL binding API such as MicroPython. */
@@ -841,7 +853,11 @@
 
 #define LV_USE_DROPDOWN   0   /**< Requires: lv_label */
 
-#define LV_USE_IMAGE      1   /**< Requires: lv_label */ /* PC: needed for cursor; STM32: set to 0 */
+#ifdef BMS_SIM
+    #define LV_USE_IMAGE      1   /**< Requires: lv_label */ /* PC: needed for cursor */
+#else
+    #define LV_USE_IMAGE      0   /* STM32F103: no image support, save Flash */
+#endif
 
 #define LV_USE_IMAGEBUTTON     0
 
@@ -1312,7 +1328,11 @@
  *==================*/
 
 /** Use SDL to open window on PC and handle mouse and keyboard. */
-#define LV_USE_SDL              1   /* PC simulator only; STM32: set to 0 */
+#ifdef BMS_SIM
+    #define LV_USE_SDL              1   /* PC simulator */
+#else
+    #define LV_USE_SDL              0   /* STM32F103 */
+#endif
 #if LV_USE_SDL
     #define LV_SDL_INCLUDE_PATH     <SDL2/SDL.h>
     #define LV_SDL_RENDER_MODE      LV_DISPLAY_RENDER_MODE_DIRECT   /**< LV_DISPLAY_RENDER_MODE_DIRECT is recommended for best performance */

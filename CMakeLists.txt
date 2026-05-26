@@ -67,6 +67,9 @@ add_compile_definitions($<$<BOOL:${LV_USE_LIBJPEG_TURBO}>:LV_USE_LIBJPEG_TURBO=1
 add_compile_definitions($<$<BOOL:${LV_USE_FFMPEG}>:LV_USE_FFMPEG=1>)
 
 # Add LVGL subdirectory
+if(BMS_SIM)
+    add_definitions(-DBMS_SIM)
+endif()
 add_subdirectory(lvgl)
 target_include_directories(lvgl PUBLIC ${PROJECT_SOURCE_DIR} ${SDL2_INCLUDE_DIRS})
 
@@ -85,11 +88,10 @@ set(MAIN_SOURCES
 
 if(BMS_SIM)
     message(STATUS "BMS backend: PC simulator")
-    add_definitions(-DBMS_SIM)
     list(APPEND MAIN_SOURCES src/sim/bms_sim.c)
 else()
     message(STATUS "BMS backend: STM32 hardware")
-    list(APPEND MAIN_SOURCES src/hw/bms_hw.c)
+    list(APPEND MAIN_SOURCES src/hw/bms_hw.cpp)
 endif()
 set(MAIN_LIBS lvgl ${SDL2_LIBRARIES})
 

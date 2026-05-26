@@ -20,9 +20,11 @@
   #include <pthread.h>
 #endif
 #include "lvgl/lvgl.h"
+#ifdef BMS_SIM
 #include "lvgl/examples/lv_examples.h"
 #include "lvgl/demos/lv_demos.h"
 #include <SDL.h>
+#endif
 
 #include "hal/hal.h"
 
@@ -53,6 +55,8 @@
 #if LV_USE_OS != LV_OS_FREERTOS
 
 #include "bms_ui.h"
+
+#ifdef BMS_SIM
 
 int main(int argc, char **argv)
 {
@@ -85,8 +89,25 @@ int main(int argc, char **argv)
   return 0;
 }
 
+#else /* STM32 */
 
-#endif
+/* STM32 main: to be implemented with real hardware init */
+int main(void)
+{
+  lv_init();
+  bms_ui_init();
+
+  while(1) {
+    uint32_t ms = lv_timer_handler();
+    /* TODO: delay ms using SysTick or HAL_Delay */
+  }
+
+  return 0;
+}
+
+#endif /* BMS_SIM */
+
+#endif /* LV_USE_OS != LV_OS_FREERTOS */
 
 /**********************
  *   STATIC FUNCTIONS

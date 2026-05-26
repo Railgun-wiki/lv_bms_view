@@ -1,5 +1,8 @@
+extern "C" {
 #include "bms_hw.h"
-#include <string.h>
+}
+
+#include <cstring>
 
 static bms_state_t s_state;
 

@@ -1,4 +1,7 @@
 #include "hal.h"
+
+#ifdef BMS_SIM
+
 #include <SDL.h>
 
 lv_display_t * sdl_hal_init(int32_t w, int32_t h)
@@ -15,14 +18,14 @@ lv_display_t * sdl_hal_init(int32_t w, int32_t h)
   lv_display_set_default(disp);
 
   /*Declare the image file.*/
-  LV_IMAGE_DECLARE(mouse_cursor_icon); 
+  LV_IMAGE_DECLARE(mouse_cursor_icon);
   lv_obj_t * cursor_obj;
   /*Create an image object for the cursor */
-  cursor_obj = lv_image_create(lv_screen_active()); 
+  cursor_obj = lv_image_create(lv_screen_active());
   /*Set the image source*/
-  lv_image_set_src(cursor_obj, &mouse_cursor_icon);           
+  lv_image_set_src(cursor_obj, &mouse_cursor_icon);
   /*Hide the cursor to maintain encoder-only look*/
-  lv_obj_add_flag(cursor_obj, LV_OBJ_FLAG_HIDDEN);             
+  lv_obj_add_flag(cursor_obj, LV_OBJ_FLAG_HIDDEN);
 
   lv_indev_t * mousewheel = lv_sdl_mousewheel_create();
   lv_indev_set_display(mousewheel, disp);
@@ -35,3 +38,4 @@ lv_display_t * sdl_hal_init(int32_t w, int32_t h)
   return disp;
 }
 
+#endif /* BMS_SIM */

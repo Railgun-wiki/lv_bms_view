@@ -82,7 +82,7 @@ set(MAIN_SOURCES
     fonts/montserrat_12_subset.c
     fonts/montserrat_28_subset.c
 )
-set(MAIN_LIBS lvgl lvgl::examples lvgl::demos lvgl::thorvg ${SDL2_LIBRARIES})
+set(MAIN_LIBS lvgl ${SDL2_LIBRARIES})
 
 # Create the main executable, depending on the FreeRTOS option
 if(USE_FREERTOS)

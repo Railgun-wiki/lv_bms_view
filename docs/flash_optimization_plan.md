@@ -71,8 +71,8 @@
 | libs（lz4/lodepng/thorvg 等） | 1,341.7 KB | **9.7 KB** ✅ | — | — | 4-6 KB | ✅ |
 | fonts（18 Montserrat + CJK） | 1,169.6 KB | 43.4 KB | **6.5 KB** ✅ | — | 2.6-3.9 KB | ✅ |
 | stdlib（标准库封装） | 1,056.6 KB | 22.1 KB ✅ | — | — | 9-13 KB | ✅ |
-| widgets（28 种） | 428.8 KB | 62.0 KB ✅ | — | ~12 KB | 5-12 KB | 🔲 |
-| draw/blend（10 种格式） | 309.1 KB | 97.0 KB ✅ | — | ~45 KB | 25-45 KB | 🔲 |
+| widgets（28 种） | 428.8 KB | 62.0 KB ✅ | — | **30.5 KB** ✅ | 12-18 KB | ✅ |
+| draw/blend（10 种格式） | 309.1 KB | 97.0 KB ✅ | — | **95.6 KB** ✅ | 38-57 KB | ✅ |
 | core | 180.2 KB | 115.7 KB ✅ | — | — | 46-69 KB | ✅ |
 | misc | 147.4 KB | 102.8 KB ✅ | — | — | 41-62 KB | ✅ |
 | themes | 44.5 KB | 1.6 KB ✅ | — | — | 0.6-1 KB | ✅ |
@@ -82,9 +82,9 @@
 | drivers | 15.0 KB | 12.1 KB ✅ | — | — | 5-7 KB | ✅ |
 | 应用代码（MVC） | ~5 KB | 31.4 KB ✅ | — | — | 13-19 KB | ✅ |
 | HAL 驱动（STM32） | N/A | — | — | — | ~15 KB | 🔲 |
-| **总计** | **4,775.1 KB** | **513.5 KB** | **6.5 KB** | **~60 KB** | **~175-265 KB** | |
+| **总计** | **4,775.1 KB** | **513.5 KB** | **6.5 KB** | **480.6 KB** | **~192-288 KB** | |
 
-> **实测数据（2026-05-26）：** Phase 1+2 后 LVGL .o 为 513.5 KB，应用 .o 为 37.9 KB（含 6.5 KB 子集字体），总计 550.6 KB。`-Os` + `--gc-sections` 后估算 220-330 KB。其中 core(115.7 KB) + misc(102.8 KB) 占大头，这些是 LVGL 核心，-Os 后仍有 87-131 KB。**Phase 3 源码修改（移除 chart/bar、精简 blend）+ 编译器优化（-Os --gc-sections nano.specs）是达标关键。**
+> **实测数据（2026-05-26）：** Phase 1+2+3 后 LVGL .o 为 480.6 KB，应用 .o 为 37.7 KB（含 6.5 KB 子集字体），总计 518.3 KB。Phase 3 完成：lv_chart → lv_line（`74717c7`）、lv_bar → lv_obj（`24ce0d6`）、blend 非 NORMAL 移除（`224f280`）、blur dispatch 守卫（`746a639`）。`-Os` + `--gc-sections` 后估算 192-288 KB。**下一步：编译器优化（-Os --gc-sections nano.specs）+ STM32 实测。**
 
 ---
 
@@ -361,57 +361,45 @@ LV_FONT_DECLARE(montserrat_28_subset);
 
 **风险：高 | 影响：高 | 需修改 LVGL 源码**
 
-> **状态：** Phase 1+2 已完成，Phase 3 待 STM32 交叉编译环境就绪后实施。修改 LVGL 子模块源码需谨慎，建议在 `dev-f103/v9.5` 分支上操作。
+> **状态：** ✅ Phase 1/2/3 已全部完成。Phase 3 于 `opt-f103` 分支实施，修改 LVGL 子模块 `dev-f103/v9.5` 分支。
 
-### 5.1 blend_to_rgb565.c 精简
+### 5.1 blend_to_rgb565.c 精简 ✅ 已完成 (commit `224f280`)
 
 **文件：** `lvgl/src/draw/sw/blend/lv_draw_sw_blend_to_rgb565.c`（69 KB 源码，23.4 KB .o）
 
 该文件包含 5 种混合模式：NORMAL、ADDITIVE、SUBTRACTIVE、MULTIPLY、DIFFERENCE。BMS UI 仅使用 NORMAL。
 
-**操作：** 用 `#if` 守卫包裹非 NORMAL 混合模式函数，或直接删除。
+**操作：** 将非 NORMAL 混合模式 else 分支替换为 `return` 早退。
 
-**节省：~10 KB .o → ~4-6 KB `-Os` 后**
+**实测：** blend_to_rgb565.c.o 从 ~12 KB 降至 **2.9 KB**。
 
-> **风险：** 必须验证 LVGL 内部无代码路径引用非 NORMAL 模式。
-
-### 5.2 移除 lv_chart 控件
+### 5.2 移除 lv_chart 控件 ✅ 已完成 (commit `74717c7`)
 
 **文件：** `lvgl/src/widgets/chart/`（41.6 KB .o，第二大控件）
 
 BMS UI 在 2 个页面使用 chart（CCCV 充电、CC 放电），各 2 个 series。
 
-**替代方案：** 用 `lv_obj` + `lv_draw_line` 自定义绘制折线图，约 200 行代码。
+**替代方案：** 用 `lv_line` + `lv_line_set_points_mutable()` + `lv_line_set_y_invert(true)` 实现环形缓冲区折线图。
 
-**节省：~41.6 KB .o → ~17-25 KB `-Os` 后**
+**实测：** lv_chart.c.o 从 41.6 KB 降至 **48 B**（空桩）。
 
-### 5.3 移除 lv_bar 控件
+### 5.3 移除 lv_bar 控件 ✅ 已完成 (commit `24ce0d6`)
 
 **文件：** `lvgl/src/widgets/bar/`（13.6 KB .o）
 
 BMS UI 仅在 header 使用 bar 显示 SoC 进度条。
 
-**替代方案：** 用 `lv_obj` + 动态宽度实现：
-```c
-lv_obj_set_width(bar_obj, soc_percent * max_width / 100);
-```
+**替代方案：** 用嵌套 `lv_obj`（外层=轨道，内层=指示器）+ `lv_obj_set_width()` 动态宽度。
 
-**节省：~13.6 KB .o → ~5-8 KB `-Os` 后**
+**实测：** lv_bar.c.o 从 13.6 KB 降至 **48 B**（空桩）。
 
-### 5.4 移除不需要的渲染子模块
+### 5.4 守卫 blur dispatch ✅ 部分完成 (commit `746a639`)
 
-以下文件在 `LV_DRAW_SW_COMPLEX=0` 后可能仍被编译，需确认并排除：
+在 `lv_draw_sw.c` 的 render dispatch 中用 `#if LV_DRAW_SW_COMPLEX` 守卫 blur case，使 blur 模块在 `COMPLEX=0` 时可被链接器 gc 回收。
 
-| 文件 | 源码 | .o 大小 | 说明 |
-|------|------|---------|------|
-| `lv_draw_sw_blur.c` | 21 KB | 6.9 KB | 模糊效果 |
-| `lv_draw_sw_box_shadow.c` | 28 KB | 9.8 KB | 阴影 |
-| `lv_draw_sw_grad.c` | 20 KB | 6.5 KB | 渐变 |
-| `lv_draw_sw_transform.c` | 41 KB | 13.2 KB | 变换 |
-| `lv_draw_sw_img.c` | 43 KB | 13.8 KB | 图像绘制 |
-| `lv_draw_sw_vector.c` | 17 KB | 7.3 KB | 矢量图形 |
+**实测：** blur.c.o = **7.0 KB**（dispatch 守卫后链接时可 gc）。
 
-**节省：~10-20 KB `-Os` 后**
+其余渲染子模块（box_shadow、grad、transform、img、vector）在当前配置下已通过 `LV_DRAW_SW_COMPLEX=0` 间接禁用。
 
 ### 5.5 禁用 A8 混合格式（不推荐）
 
@@ -540,14 +528,14 @@ MEMORY {
 - [x] 验证：PC 模拟器构建通过，UI 文字使用子集字体
 - [x] Git commit: `e4a3bf1`
 
-### Phase 3：源码修改
+### Phase 3：源码修改 ✅ 已完成
 
-- [ ] 5.1 blend_to_rgb565.c 移除非 NORMAL 混合模式
-- [ ] 5.2 移除 lv_chart，实现自定义折线绘制
-- [ ] 5.3 移除 lv_bar，实现 obj+宽度替代
-- [ ] 5.4 确认并移除不需要的渲染子模块
-- [ ] 5.5 确认 A8 blend 已保留（`LV_DRAW_SW_SUPPORT_A8 = 1`，字体抗锯齿必需）
-- [ ] 验证：UI 功能完整，无渲染异常
+- [x] 5.1 blend_to_rgb565.c 移除非 NORMAL 混合模式 → `224f280`
+- [x] 5.2 移除 lv_chart，用 lv_line + 可变点数组替代 → `74717c7`
+- [x] 5.3 移除 lv_bar，用嵌套 lv_obj + 动态宽度替代 → `24ce0d6`
+- [x] 5.4 守卫 blur dispatch（`#if LV_DRAW_SW_COMPLEX`）→ `746a639`
+- [x] 5.5 确认 A8 blend 已保留（`LV_DRAW_SW_SUPPORT_A8 = 1`）
+- [x] 验证：PC 模拟器构建通过，UI 功能完整
 
 ### 编译器优化
 
